@@ -1,0 +1,31 @@
+# Railway Environment Variables
+# Copy these to Railway Dashboard → Variables tab
+# https://railway.app/project/d3e9f8f4-cdca-4825-9ec4-f7fa9844d266
+
+# Required - fal.ai Configuration
+FAL_API_KEY=0d44c9a0-5679-4338-9f14-055fa0907d5f:6e3f241a600df52476c1bb414dff5e4a
+FAL_BASE_URL=https://queue.fal.run
+FAL_MODEL_ID=fal-ai/minimax-video
+
+# Required - Storage
+VIDEO_STORAGE_PATH=storage/videos
+
+# Required - Redis
+USE_REDIS=true
+
+# Optional - AI4Bharat (if running locally)
+AI4BHARAT_BASE_URL=http://localhost:5000
+AI4BHARAT_TRANSLATE_PATH=/translate
+
+# Optional - Retry Configuration
+REQUEST_TIMEOUT_SECONDS=30.0
+MAX_RETRIES=3
+RETRY_BACKOFF_FACTOR=1.5
+
+# Optional - Redis Configuration (if using Railway Redis)
+# REDIS_URL=redis://default:password@redis.railway.internal:6379
+# REDIS_JOB_TTL_SECONDS=604800
+
+# Update After Deployment - Replace 'your-app.railway.app' with your actual URL
+# BACKEND_WEBHOOK_URL=https://your-app.railway.app/webhooks/video-complete
+# CORS_ORIGINS=["https://your-app.railway.app"]

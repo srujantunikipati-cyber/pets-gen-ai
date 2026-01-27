@@ -1,0 +1,78 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info
+dist
+build
+.pytest_cache
+.coverage
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Documentation (keep only README)
+*.md
+!README.md
+
+# Test files
+test_*.py
+*_test.py
+tests/
+
+# Scripts
+*.sh
+!START_ALL_SERVICES.sh
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Large model files (download at runtime)
+*.pt
+*.pth
+*.h5
+*.ckpt
+*.safetensors
+yolov5s.pt
+
+# Node modules
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Deployment configs
+railway.json
+render.toml
+fly.toml
+
+# Large directories that might be in IndicTrans2
+IndicTrans2/__pycache__
+IndicTrans2/*/__pycache__
+IndicTrans2/.git
+IndicTrans2/*.md
+IndicTrans2/scripts/
+IndicTrans2/baseline_eval/
+IndicTrans2/huggingface_interface/
+IndicTrans2/inference/__pycache__

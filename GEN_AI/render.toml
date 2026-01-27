@@ -1,0 +1,18 @@
+# Render Configuration File
+# This file helps Render auto-configure your service
+
+[build]
+  dockerfile = "Dockerfile"
+  dockerContext = "."
+
+[env]
+  FAL_API_KEY = "0d44c9a0-5679-4338-9f14-055fa0907d5f:6e3f241a600df52476c1bb414dff5e4a"
+  FAL_BASE_URL = "https://queue.fal.run"
+  FAL_MODEL_ID = "fal-ai/minimax-video"
+  VIDEO_STORAGE_PATH = "storage/videos"
+  USE_REDIS = "true"
+  AI4BHARAT_BASE_URL = "http://localhost:5000"
+  AI4BHARAT_TRANSLATE_PATH = "/translate"
+  REQUEST_TIMEOUT_SECONDS = "30.0"
+  MAX_RETRIES = "3"
+  RETRY_BACKOFF_FACTOR = "1.5"

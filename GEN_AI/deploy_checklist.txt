@@ -1,0 +1,51 @@
+RAILWAY DEPLOYMENT CHECKLIST
+============================
+
+□ Step 1: Connect GitHub to Railway
+  → Go to railway.app
+  → New Project → Deploy from GitHub
+  → Select: Chetupatil24/GEN_AI
+
+□ Step 2: Set Required Variables
+  → Variables tab → New Variable
+  → Add each variable below:
+
+  FAL_API_KEY = 0d44c9a0-5679-4338-9f14-055fa0907d5f:6e3f241a600df52476c1bb414dff5e4a
+  FAL_BASE_URL = https://queue.fal.run
+  FAL_MODEL_ID = fal-ai/minimax-video
+  VIDEO_STORAGE_PATH = storage/videos
+  USE_REDIS = true
+
+□ Step 3: Set Optional Variables
+  AI4BHARAT_BASE_URL = http://localhost:5000
+  AI4BHARAT_TRANSLATE_PATH = /translate
+  REQUEST_TIMEOUT_SECONDS = 30.0
+  MAX_RETRIES = 3
+  RETRY_BACKOFF_FACTOR = 1.5
+
+□ Step 4: Add Redis (Optional)
+  → + New → Database → Add Redis
+
+□ Step 5: Monitor Deployment
+  → Deployments tab
+  → Wait for "Deployed" status
+
+□ Step 6: Check Logs
+  → Logs tab
+  → Look for "Application startup complete"
+
+□ Step 7: Get Public URL
+  → Settings → Networking
+  → Generate Domain
+  → Copy URL
+
+□ Step 8: Update Webhook URLs
+  → Variables tab
+  → Update BACKEND_WEBHOOK_URL with your URL
+  → Update CORS_ORIGINS with your URL
+
+□ Step 9: Test Deployment
+  → curl https://your-app.railway.app/healthz
+  → Should return: {"status":"ok"}
+
+✅ DEPLOYMENT COMPLETE!

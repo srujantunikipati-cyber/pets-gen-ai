@@ -1,0 +1,41 @@
+# Fly.io Configuration File
+# Generated for gen-ai-app
+
+app = "gen-ai-app"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  FAL_API_KEY = "0d44c9a0-5679-4338-9f14-055fa0907d5f:6e3f241a600df52476c1bb414dff5e4a"
+  FAL_BASE_URL = "https://queue.fal.run"
+  FAL_MODEL_ID = "fal-ai/minimax-video"
+  VIDEO_STORAGE_PATH = "storage/videos"
+  USE_REDIS = "true"
+
+[[services]]
+  internal_port = 8000
+  protocol = "tcp"
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.http_checks]]
+    interval = "10s"
+    timeout = "2s"
+    grace_period = "5s"
+    method = "GET"
+    path = "/healthz"
