@@ -1,0 +1,77 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!GEN_AI/README.md
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Test files
+test_*.py
+*_test.py
+tests/
+.pytest_cache/
+
+# Storage (don't include generated videos in image)
+storage/videos/*
+!storage/videos/.gitkeep
+
+# Large model files (downloaded at runtime)
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.pb
+
+# IndicTrans2 large files (exclude from build)
+IndicTrans2/models/
+IndicTrans2/checkpoints/
+IndicTrans2/*.pt
+IndicTrans2/*.pth
+
+# Other project directories (only need GEN_AI)
+pets-backend/
+*.sh
+!GEN_AI/*.sh
+
+# Railway and deployment configs (not needed in image)
+railway.json
+render.toml
+fly.toml
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
