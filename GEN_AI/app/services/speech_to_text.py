@@ -7,12 +7,21 @@ from typing import Optional, Dict, Any
 import base64
 
 try:
-    import whisper
+    from faster_whisper import WhisperModel
     WHISPER_AVAILABLE = True
 except ImportError:
-    WHISPER_AVAILABLE = False
-    _logger = logging.getLogger(__name__)
-    _logger.warning("whisper not available. Install with: pip install openai-whisper")
+    try:
+        # Fallback to openai-whisper if faster-whisper not available
+        import whisper
+        WHISPER_AVAILABLE = True
+        USE_FASTER_WHISPER = False
+    except ImportError:
+        WHISPER_AVAILABLE = False
+        USE_FASTER_WHISPER = False
+        _logger = logging.getLogger(__name__)
+        _logger.warning("whisper not available. Install with: pip install faster-whisper")
+else:
+    USE_FASTER_WHISPER = True
 
 _logger = logging.getLogger(__name__)
 
@@ -32,19 +41,25 @@ class SpeechToTextService:
         """
         if not WHISPER_AVAILABLE:
             raise ImportError(
-                "openai-whisper is required for speech-to-text. "
-                "Install with: pip install openai-whisper"
+                "faster-whisper or openai-whisper is required for speech-to-text. "
+                "Install with: pip install faster-whisper"
             )
         
         self.model_size = model_size
         self._model = None
-        _logger.info(f"Initializing Whisper model: {model_size}")
+        self.use_faster_whisper = USE_FASTER_WHISPER
+        _logger.info(f"Initializing Whisper model: {model_size} (faster-whisper: {self.use_faster_whisper})")
 
     def _load_model(self):
         """Lazy load Whisper model."""
         if self._model is None:
             _logger.info(f"Loading Whisper model: {self.model_size}")
-            self._model = whisper.load_model(self.model_size)
+            if self.use_faster_whisper:
+                from faster_whisper import WhisperModel
+                self._model = WhisperModel(self.model_size, device="cpu", compute_type="int8")
+            else:
+                import whisper
+                self._model = whisper.load_model(self.model_size)
             _logger.info("Whisper model loaded successfully")
 
     async def transcribe_audio_bytes(
@@ -69,17 +84,34 @@ class SpeechToTextService:
             
             try:
                 # Transcribe audio
-                result = self._model.transcribe(
-                    temp_audio_path,
-                    language=language,
-                    task="transcribe"
-                )
-                
-                return {
-                    "text": result.get("text", "").strip(),
-                    "language": result.get("language", "unknown"),
-                    "segments": result.get("segments", []),
-                }
+                if self.use_faster_whisper:
+                    # faster-whisper API
+                    segments, info = self._model.transcribe(
+                        temp_audio_path,
+                        language=language,
+                        task="transcribe"
+                    )
+                    text_parts = [segment.text for segment in segments]
+                    text = " ".join(text_parts).strip()
+                    
+                    return {
+                        "text": text,
+                        "language": info.language if hasattr(info, 'language') else "unknown",
+                        "segments": [{"text": seg.text, "start": seg.start, "end": seg.end} for seg in segments],
+                    }
+                else:
+                    # openai-whisper API
+                    result = self._model.transcribe(
+                        temp_audio_path,
+                        language=language,
+                        task="transcribe"
+                    )
+                    
+                    return {
+                        "text": result.get("text", "").strip(),
+                        "language": result.get("language", "unknown"),
+                        "segments": result.get("segments", []),
+                    }
                 
             finally:
                 # Cleanup temp file
@@ -106,17 +138,34 @@ class SpeechToTextService:
             self._load_model()
             
             # Transcribe audio
-            result = self._model.transcribe(
-                audio_path,
-                language=language,
-                task="transcribe"
-            )
-            
-            return {
-                "text": result.get("text", "").strip(),
-                "language": result.get("language", "unknown"),
-                "segments": result.get("segments", []),
-            }
+            if self.use_faster_whisper:
+                # faster-whisper API
+                segments, info = self._model.transcribe(
+                    audio_path,
+                    language=language,
+                    task="transcribe"
+                )
+                text_parts = [segment.text for segment in segments]
+                text = " ".join(text_parts).strip()
+                
+                return {
+                    "text": text,
+                    "language": info.language if hasattr(info, 'language') else "unknown",
+                    "segments": [{"text": seg.text, "start": seg.start, "end": seg.end} for seg in segments],
+                }
+            else:
+                # openai-whisper API
+                result = self._model.transcribe(
+                    audio_path,
+                    language=language,
+                    task="transcribe"
+                )
+                
+                return {
+                    "text": result.get("text", "").strip(),
+                    "language": result.get("language", "unknown"),
+                    "segments": result.get("segments", []),
+                }
             
         except Exception as e:
             _logger.exception("Failed to transcribe audio file")

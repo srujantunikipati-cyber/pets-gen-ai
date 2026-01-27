@@ -21,7 +21,9 @@ pillow==10.2.0
 
 # Audio & Speech Processing
 moviepy==1.0.3
-openai-whisper==20231117
+# Note: openai-whisper has triton dependency conflict with torch 2.5.1
+# Using faster-whisper as alternative (no triton dependency, faster inference)
+faster-whisper>=1.0.0
 ffmpeg-python==0.2.0
 
 # Web Interface (Optional - for local testing)
