@@ -91,13 +91,15 @@ class SpeechToTextService:
                         language=language,
                         task="transcribe"
                     )
-                    text_parts = [segment.text for segment in segments]
+                    # Convert generator to list
+                    segments_list = list(segments)
+                    text_parts = [segment.text for segment in segments_list]
                     text = " ".join(text_parts).strip()
                     
                     return {
                         "text": text,
                         "language": info.language if hasattr(info, 'language') else "unknown",
-                        "segments": [{"text": seg.text, "start": seg.start, "end": seg.end} for seg in segments],
+                        "segments": [{"text": seg.text, "start": seg.start, "end": seg.end} for seg in segments_list],
                     }
                 else:
                     # openai-whisper API
@@ -145,13 +147,15 @@ class SpeechToTextService:
                     language=language,
                     task="transcribe"
                 )
-                text_parts = [segment.text for segment in segments]
+                # Convert generator to list
+                segments_list = list(segments)
+                text_parts = [segment.text for segment in segments_list]
                 text = " ".join(text_parts).strip()
                 
                 return {
                     "text": text,
                     "language": info.language if hasattr(info, 'language') else "unknown",
-                    "segments": [{"text": seg.text, "start": seg.start, "end": seg.end} for seg in segments],
+                    "segments": [{"text": seg.text, "start": seg.start, "end": seg.end} for seg in segments_list],
                 }
             else:
                 # openai-whisper API
