@@ -86,8 +86,8 @@ class AI4BharatClient:
                     ) from exc
 
             except httpx.HTTPStatusError as exc:
-                # Only retry on server errors (5xx)
-                if exc.response.status_code >= 500:
+                # Only retry on server errors (5xx) or connection issues (0 status)
+                if exc.response.status_code >= 500 or exc.response.status_code == 0:
                     last_exception = exc
                     if attempt < self._max_retries - 1:
                         backoff = self._retry_backoff_factor ** attempt
@@ -101,17 +101,36 @@ class AI4BharatClient:
                         await asyncio.sleep(backoff)
                         continue
                 # Client errors (4xx) or final attempt - raise immediately
+                error_msg = exc.response.text if hasattr(exc.response, 'text') else str(exc)
                 raise AI4BharatAPIError(
-                    f"AI4Bharat translation failed: {exc.response.text}"
+                    f"AI4Bharat request failed (HTTP {exc.response.status_code}): {error_msg}"
                 ) from exc
 
-            except httpx.HTTPError as exc:
-                # Retry on connection errors
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout) as exc:
+                # Connection errors - retry these
                 last_exception = exc
                 if attempt < self._max_retries - 1:
                     backoff = self._retry_backoff_factor ** attempt
                     _logger.warning(
                         "AI4Bharat connection error: %s, retrying in %.2fs (attempt %d/%d)",
+                        exc,
+                        backoff,
+                        attempt + 1,
+                        self._max_retries,
+                    )
+                    await asyncio.sleep(backoff)
+                    continue
+                # Final attempt - raise with clearer message
+                raise AI4BharatAPIError(
+                    f"AI4Bharat connection error: All connection attempts failed. Please check if the AI4Bharat service is running."
+                ) from exc
+            except httpx.HTTPError as exc:
+                # Retry on other HTTP errors
+                last_exception = exc
+                if attempt < self._max_retries - 1:
+                    backoff = self._retry_backoff_factor ** attempt
+                    _logger.warning(
+                        "AI4Bharat request error: %s, retrying in %.2fs (attempt %d/%d)",
                         exc,
                         backoff,
                         attempt + 1,

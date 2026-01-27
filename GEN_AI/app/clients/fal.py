@@ -164,20 +164,60 @@ class FalClient:
                 video_url = None
                 
                 # Check if video is ready - fal.ai returns status as "COMPLETED" (uppercase)
-                # When completed, the video URL might be in the response_url endpoint
+                # When completed, the video URL might be in various locations
                 if status in ["completed", "COMPLETED"]:
-                    # Check if video URL is in the response directly
+                    # Method 1: Check if video URL is in the response directly
                     if "video" in data:
                         video_data = data.get("video")
                         if isinstance(video_data, dict):
-                            video_url = video_data.get("url") or video_data.get("urls", {}).get("mp4")
+                            video_url = video_data.get("url") or video_data.get("urls", {}).get("mp4") or video_data.get("urls", {}).get("video")
                         elif isinstance(video_data, str):
                             video_url = video_data
+                    
+                    # Method 2: Check output field
+                    if not video_url and "output" in data:
+                        output = data.get("output")
+                        if isinstance(output, dict):
+                            if "video" in output:
+                                video_data = output["video"]
+                                if isinstance(video_data, str):
+                                    video_url = video_data
+                                elif isinstance(video_data, dict):
+                                    video_url = video_data.get("url") or video_data.get("urls", {}).get("mp4")
+                    
+                    # Method 3: Check response_url and fetch from there
+                    if not video_url and "response_url" in data:
+                        response_url = data.get("response_url")
+                        try:
+                            result_resp = await self._http_client.get(response_url, headers=self._headers())
+                            if result_resp.status_code == 200:
+                                result_data = result_resp.json()
+                                # Check for video in various possible locations
+                                if "video" in result_data:
+                                    video_data = result_data["video"]
+                                    if isinstance(video_data, str):
+                                        video_url = video_data
+                                    elif isinstance(video_data, dict):
+                                        video_url = video_data.get("url") or video_data.get("urls", {}).get("mp4")
+                                elif "output" in result_data:
+                                    output = result_data["output"]
+                                    if isinstance(output, dict) and "video" in output:
+                                        video_data = output["video"]
+                                        if isinstance(video_data, str):
+                                            video_url = video_data
+                                        elif isinstance(video_data, dict):
+                                            video_url = video_data.get("url") or video_data.get("urls", {}).get("mp4")
+                        except Exception as e:
+                            _logger.debug(f"Failed to fetch video from response_url {response_url}: {e}")
+                    
+                    if video_url:
+                        _logger.info(f"✅ Found video URL for job {job_id}: {video_url}")
                 
                 return {
                     "status": status,
                     "video_url": video_url,
                     "detail": data.get("detail") or data.get("error"),
+                    "response_url": data.get("response_url"),  # Include for further processing
                 }
 
             except httpx.HTTPStatusError as exc:

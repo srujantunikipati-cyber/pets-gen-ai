@@ -644,30 +644,57 @@ async def get_video_result(
             )
 
         if not record.video_url:
+            # Try to get video URL from fal.ai
             try:
                 result_payload = await fal_client.get_job_result(job_id)
+                if result_payload and "video_url" in result_payload and result_payload["video_url"]:
+                    record = await job_store.update(
+                        job_id,
+                        video_url=result_payload["video_url"],
+                    ) or record
+                else:
+                    # If get_job_result didn't find it, try get_job_status again
+                    status_payload = await fal_client.get_job_status(job_id)
+                    video_url = status_payload.get("video_url")
+                    if video_url:
+                        record = await job_store.update(
+                            job_id,
+                            video_url=video_url,
+                        ) or record
             except FalAPIError as exc:
                 _logger.exception("fal.ai result fetch failed")
-                raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
-            if not result_payload or "video_url" not in result_payload:
+                # Try one more time with get_job_status
+                try:
+                    status_payload = await fal_client.get_job_status(job_id)
+                    video_url = status_payload.get("video_url")
+                    if video_url:
+                        record = await job_store.update(
+                            job_id,
+                            video_url=video_url,
+                        ) or record
+                except Exception:
+                    pass
+                if not record.video_url:
+                    raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+            
+            if not record.video_url:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="Video asset not ready yet.",
+                    detail="Video asset not ready yet. Please try again in a few moments.",
                 )
-            record = await job_store.update(
-                job_id,
-                video_url=result_payload["video_url"],
-            ) or record
             
-            # Download and save video if we just got the URL
-            if result_payload.get("video_url"):
+            # Automatically download and save video to local storage
+            if record.video_url:
                 try:
                     local_path = await video_storage.download_and_save_video(
-                        video_url=result_payload["video_url"],
+                        video_url=record.video_url,
                         job_id=job_id,
                     )
                     if local_path:
                         _logger.info(f"💾 Video saved to: {local_path}")
+                except Exception as e:
+                    _logger.warning(f"⚠️  Video download failed (will use URL directly): {e}")
+                    # Continue even if download fails - return the URL
                 except Exception as e:
                     _logger.error(f"❌ Error saving video for job {job_id}: {e}")
 
