@@ -398,6 +398,7 @@ async def generate_video(
     await job_store.upsert(record)
     
     # Step 5: If pets-backend is enabled and auth_token provided, verify token (optional)
+    # Get settings via dependency (already injected)
     settings = get_settings_dependency()
     if settings.pets_backend_enabled and hasattr(payload, 'auth_token') and payload.auth_token:
         try:
