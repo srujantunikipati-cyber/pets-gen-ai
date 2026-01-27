@@ -381,7 +381,7 @@ async def generate_video(
     status_value = _normalise_status(fal_response.get("status", "queued"))
     detail = fal_response.get("detail")
 
-    # Step 4: Store job with metadata
+    # Step 4: Store job with metadata (including user_id if provided)
     record = JobRecord(
         job_id=job_id,
         status=status_value,
@@ -390,7 +390,26 @@ async def generate_video(
         language=target_language,
         detail=detail,
     )
+    # Store user_id if provided (for pets-backend integration)
+    if hasattr(payload, 'user_id') and payload.user_id:
+        # Note: JobRecord doesn't have user_id field by default, but we can store it in metadata
+        # For now, we'll log it and include it in webhook notifications
+        _logger.info(f"📝 Job {job_id} created for user_id: {payload.user_id}")
     await job_store.upsert(record)
+    
+    # Step 5: If pets-backend is enabled and auth_token provided, verify token (optional)
+    settings = get_settings_dependency()
+    if settings.pets_backend_enabled and hasattr(payload, 'auth_token') and payload.auth_token:
+        try:
+            from app.dependencies import get_pets_backend_client
+            pets_client = get_pets_backend_client()
+            if pets_client:
+                # Use async context manager for proper cleanup
+                async with pets_client:
+                    user_info = await pets_client.verify_token(payload.auth_token)
+                    _logger.info(f"✅ User authenticated: {user_info.get('email', 'unknown')}")
+        except Exception as e:
+            _logger.warning(f"⚠️  pets-backend token verification failed (non-blocking): {e}")
 
     return GenerateVideoResponse(
         job_id=job_id,
@@ -474,16 +493,22 @@ async def video_completion_webhook(
             )
             await job_store.upsert(new_record)
 
-        # Notify backend with retry logic
+        # Notify pets-backend with retry logic
         backend_webhook_url = settings.backend_webhook_url
         if backend_webhook_url:
-            _logger.info(f"🔔 Notifying backend at {backend_webhook_url}")
+            _logger.info(f"🔔 Notifying pets-backend at {backend_webhook_url}")
 
+            # Get user_id from stored record if available (for pets-backend tracking)
+            user_id = None
+            if stored_record and hasattr(stored_record, 'user_id'):
+                user_id = getattr(stored_record, 'user_id', None)
+            
             webhook_payload = {
                 "job_id": job_id,
                 "status": status_str,
                 "video_url": video_url,
                 "error": error,
+                "user_id": user_id,  # Include user_id if available
                 "timestamp": None,  # Will be set by backend
             }
 

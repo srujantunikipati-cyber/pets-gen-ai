@@ -52,6 +52,10 @@ class GenerateVideoRequest(BaseModel):
     Supports two modes:
     1. Text + Image: Provide text and image_url/image_data
     2. Video Input: Provide video_data or video_url (audio will be extracted and converted to text)
+    
+    Optional fields for pets-backend integration:
+    - user_id: User identifier from pets-backend (optional, for tracking)
+    - auth_token: JWT token for pets-backend authentication (optional)
     """
 
     # Text input (optional if video is provided)
@@ -64,6 +68,10 @@ class GenerateVideoRequest(BaseModel):
     # Video input (new - for audio extraction and STT)
     video_url: Optional[str] = Field(None, description="URL to video file")
     video_data: Optional[str] = Field(None, description="Base64 encoded video data (data:video/...;base64,...)")
+    
+    # pets-backend integration fields (optional)
+    user_id: Optional[str] = Field(None, description="User ID from pets-backend for job tracking")
+    auth_token: Optional[str] = Field(None, description="JWT token for pets-backend authentication")
     
     @field_validator("image_data", "video_data", mode="before")
     @classmethod

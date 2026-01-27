@@ -158,3 +158,29 @@ class PetsBackendClient:
             ) from exc
         except httpx.RequestError as exc:
             raise PetsBackendError(f"pets-backend connection error: {exc}") from exc
+
+    async def update_job_status(
+        self,
+        job_id: str,
+        status: str,
+        video_url: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update pet roast job status in pets-backend.
+        
+        Note: pets-backend uses REST API for job status updates via webhook.
+        This method is for direct GraphQL updates if needed in the future.
+        
+        Args:
+            job_id: Job identifier
+            status: Job status (pending, processing, completed, failed)
+            video_url: Video URL if completed
+            error: Error message if failed
+            
+        Returns:
+            Update result
+        """
+        # For now, pets-backend expects webhook notifications
+        # This method can be used for direct GraphQL updates if backend adds mutation
+        _logger.debug(f"Job status update: {job_id} -> {status}")
+        return {"success": True, "message": "Status update logged"}

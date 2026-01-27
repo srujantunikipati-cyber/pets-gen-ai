@@ -45,7 +45,7 @@ def get_video_storage(request: Request) -> VideoStorageService:
     return request.app.state.video_storage
 
 
-def get_pets_backend_client() -> Optional[PetsBackendClient]:
+def get_pets_backend_client(request: Request = None) -> Optional[PetsBackendClient]:
     """Get pets-backend client if enabled."""
     settings = get_settings()
     if not settings.pets_backend_enabled:

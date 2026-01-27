@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     # pets-backend GraphQL server configuration
     pets_backend_url: str = "http://localhost:4000"  # GraphQL server URL
     pets_backend_enabled: bool = False  # Enable/disable pets-backend integration
+    pets_backend_api_url: Optional[str] = None  # REST API URL (if different from GraphQL URL)
 
     # fal.ai API configuration for video generation
     fal_api_key: str = Field(default=...)
