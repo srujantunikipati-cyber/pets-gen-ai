@@ -1,4 +1,5 @@
 # Multi-stage build to reduce final image size
+# Build: 2026-01-30 - Added ultralytics for YOLOv5
 FROM python:3.10-slim as builder
 
 # Install build dependencies only
