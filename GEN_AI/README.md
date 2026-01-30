@@ -277,7 +277,7 @@ GET /healthz
 {"status": "ok"}
 ```
 
-### Generate Video
+### Generate Video (Mode 1: Text + Image)
 ```http
 POST /api/generate-video
 Content-Type: application/json
@@ -288,6 +288,37 @@ Content-Type: application/json
   "webhook_url": "https://optional-webhook.com/callback"
 }
 ```
+**Response:**
+```json
+{
+  "job_id": "abc123def456",
+  "status": "processing"
+}
+```
+
+### Generate Video (Mode 2: Video with Voice Only)
+```http
+POST /api/generate-video
+Content-Type: application/json
+
+{
+  "video_data": "data:video/mp4;base64,..."
+}
+```
+Or using video URL:
+```json
+{
+  "video_url": "https://example.com/pet-video.mp4"
+}
+```
+
+**Processing Flow:**
+1. 🎵 Extract audio from video
+2. 🎤 Convert speech to text (original language)
+3. 🛡️ Filter content using AI4Bharat
+4. 🖼️ Extract frame for pet detection
+5. 🎬 Generate roast video
+
 **Response:**
 ```json
 {

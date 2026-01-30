@@ -2,11 +2,13 @@
 
 import logging
 import os
+import traceback
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 # Remove invalid CORS_ORIGINS from environment before importing settings
 if "CORS_ORIGINS" in os.environ:
@@ -19,7 +21,6 @@ from app.clients.ai4bharat import AI4BharatClient
 from app.clients.fal import FalClient
 from app.core.config import Settings, get_settings, clear_settings_cache
 from app.services.job_store import JobStore
-from app.services.redis_job_store import RedisJobStore
 from app.services.video_storage import VideoStorageService
 from app.services.audio_extraction import get_audio_extraction_service
 from app.services.speech_to_text import get_speech_to_text_service
@@ -36,21 +37,9 @@ async def lifespan(app: FastAPI):
     settings: Settings = get_settings()
     timeout = httpx.Timeout(settings.request_timeout_seconds)
 
-    # Initialize job store (Redis or in-memory fallback)
-    if settings.use_redis:
-        try:
-            job_store = RedisJobStore(
-                redis_url=settings.redis_url,
-                ttl_seconds=settings.redis_job_ttl_seconds
-            )
-            await job_store.connect()
-            _logger.info("✅ Using Redis for persistent job storage")
-        except Exception as e:
-            _logger.warning(f"⚠️  Redis connection failed: {e}. Falling back to in-memory storage.")
-            job_store = JobStore()
-    else:
-        _logger.info("Using in-memory job storage (not persistent)")
-        job_store = JobStore()
+    # Use in-memory job store only (no Redis on Railway)
+    job_store = JobStore()
+    _logger.info("Using in-memory job storage")
     
     # Initialize video storage service
     video_storage = VideoStorageService(storage_path=settings.video_storage_path)
@@ -64,14 +53,19 @@ async def lifespan(app: FastAPI):
             max_retries=settings.max_retries,
             retry_backoff_factor=settings.retry_backoff_factor,
         )
-        fal_client = FalClient(
-            http_client=async_client,
-            api_key=settings.fal_api_key,
-            base_url=str(settings.fal_base_url),
-            model_id=settings.fal_model_id,
-            max_retries=settings.max_retries,
-            retry_backoff_factor=settings.retry_backoff_factor,
-        )
+        fal_client = None
+        if settings.fal_api_key:
+            fal_client = FalClient(
+                http_client=async_client,
+                api_key=settings.fal_api_key,
+                base_url=str(settings.fal_base_url),
+                model_id=settings.fal_model_id,
+                max_retries=settings.max_retries,
+                retry_backoff_factor=settings.retry_backoff_factor,
+            )
+            _logger.info("✅ fal.ai client initialized")
+        else:
+            _logger.warning("⚠️ FAL_API_KEY not set; /api/generate-video will return 503")
 
         app.state.settings = settings
         app.state.job_store = job_store
@@ -102,8 +96,6 @@ async def lifespan(app: FastAPI):
         yield
 
         # Cleanup
-        if isinstance(job_store, RedisJobStore):
-            await job_store.close()
         _logger.info("Application shutdown complete")
 
 
@@ -125,6 +117,21 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch unhandled exceptions and return 500 with detail and log traceback."""
+    _logger.exception("Unhandled exception: %s", exc)
+    tb = traceback.format_exc()
+    _logger.debug("Traceback: %s", tb)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": str(exc),
+            "type": type(exc).__name__,
+        },
+    )
 
 
 @app.get("/healthz")

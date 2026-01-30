@@ -9,12 +9,18 @@ import base64
 import io
 
 try:
-    from moviepy.editor import VideoFileClip
+    # Try newer moviepy 2.x import structure first
+    from moviepy import VideoFileClip
     MOVIEPY_AVAILABLE = True
 except ImportError:
-    MOVIEPY_AVAILABLE = False
-    _logger = logging.getLogger(__name__)
-    _logger.warning("moviepy not available. Install with: pip install moviepy")
+    try:
+        # Fall back to older moviepy 1.x import structure
+        from moviepy.editor import VideoFileClip
+        MOVIEPY_AVAILABLE = True
+    except ImportError:
+        MOVIEPY_AVAILABLE = False
+        _logger = logging.getLogger(__name__)
+        _logger.warning("moviepy not available. Install with: pip install moviepy")
 
 _logger = logging.getLogger(__name__)
 

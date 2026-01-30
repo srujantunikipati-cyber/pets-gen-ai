@@ -39,6 +39,7 @@ tests/
 # Scripts
 *.sh
 !START_ALL_SERVICES.sh
+!start.sh
 
 # Logs
 *.log

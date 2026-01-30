@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 from app.services.job_store import JobStatus
 
@@ -51,52 +51,64 @@ class GenerateVideoRequest(BaseModel):
     
     Supports two modes:
     1. Text + Image: Provide text and image_url/image_data
-    2. Video Input: Provide video_data or video_url (audio will be extracted and converted to text)
+    2. Video Input: Provide video, video_url, or video_data (audio extracted and converted to text)
     
-    Optional fields for pets-backend integration:
-    - user_id: User identifier from pets-backend (optional, for tracking)
-    - auth_token: JWT token for pets-backend authentication (optional)
+    Accepts common payload field names: video, videoUrl, video_url, videoData, video_data.
     """
+
+    model_config = {"extra": "ignore"}  # Ignore unknown fields from backend
 
     # Text input (optional if video is provided)
     text: Optional[str] = Field(None, min_length=1, max_length=5000)
     
     # Image input (optional if video is provided)
-    image_url: Optional[str] = None  # Changed from HttpUrl to str to accept data URLs
-    image_data: Optional[str] = Field(None, description="Base64 encoded image data (data:image/...;base64,...)")
+    image_url: Optional[str] = Field(None, alias="imageUrl")
+    image_data: Optional[str] = Field(None, description="Base64 image (data:image/...;base64,...)", alias="imageData")
     
-    # Video input (new - for audio extraction and STT)
-    video_url: Optional[str] = Field(None, description="URL to video file")
-    video_data: Optional[str] = Field(None, description="Base64 encoded video data (data:video/...;base64,...)")
+    # Video input - accept multiple field names for backend compatibility
+    video_url: Optional[str] = Field(None, description="URL to video file", alias="videoUrl")
+    video_data: Optional[str] = Field(None, description="Base64 video (data:video/...;base64,...)", alias="videoData")
+    video: Optional[str] = Field(None, description="Video URL or data (alias for video_url)")
     
     # pets-backend integration fields (optional)
-    user_id: Optional[str] = Field(None, description="User ID from pets-backend for job tracking")
-    auth_token: Optional[str] = Field(None, description="JWT token for pets-backend authentication")
+    user_id: Optional[str] = Field(None, alias="userId")
+    auth_token: Optional[str] = Field(None, alias="authToken")
     
-    @field_validator("image_data", "video_data", mode="before")
+    @field_validator("image_data", "video_data", "video", mode="before")
     @classmethod
     def validate_data(cls, v):
         """Validate data fields."""
         return v
     
-    def model_post_init(self, __context):
-        """Ensure either (text + image) or video is provided."""
-        has_text = bool(self.text)
-        has_image = bool(self.image_url or self.image_data)
-        has_video = bool(self.video_url or self.video_data)
+    @model_validator(mode="after")
+    def normalize_video_and_validate(self):
+        """Map 'video' to video_url or video_data and ensure valid input."""
+        if self.video and not (self.video_url or self.video_data):
+            if self.video.startswith("http://") or self.video.startswith("https://"):
+                object.__setattr__(self, "video_url", self.video)
+            elif self.video.startswith("data:video/") or self.video.startswith("data:application/"):
+                object.__setattr__(self, "video_data", self.video)
+            else:
+                object.__setattr__(self, "video_url", self.video)
         
-        # Mode 1: Text + Image
+        # Check what we have (ignore empty strings)
+        has_text = bool(self.text and self.text.strip())
+        has_image = bool((self.image_url and str(self.image_url).strip()) or 
+                        (self.image_data and self.image_data.strip()))
+        has_video = bool((self.video_url and str(self.video_url).strip()) or 
+                        (self.video_data and self.video_data.strip()))
+        
+        # Valid combinations:
+        # 1. Text + Image (for roast video generation)
+        # 2. Video only (extract audio, STT, filter, generate)
         if has_text and has_image:
-            return  # Valid
-        
-        # Mode 2: Video input (will extract audio and convert to text)
+            return self
         if has_video:
-            return  # Valid
+            return self
         
-        # Invalid: missing required inputs
         raise ValueError(
-            "Either provide (text + image_url/image_data) OR (video_url/video_data). "
-            "For video input, audio will be extracted and converted to text automatically."
+            "Either provide (text + image_url/image_data) OR (video_url/video_data/video). "
+            "For video input, audio will be extracted and converted to text."
         )
 
 

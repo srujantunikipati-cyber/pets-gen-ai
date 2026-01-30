@@ -210,7 +210,7 @@ def main():
 
             if uploaded_file:
                 image = Image.open(uploaded_file)
-                st.image(image, caption="Uploaded Image", use_container_width=True)
+                st.image(image, caption="Uploaded Image", width='stretch')
 
         with col2:
             st.subheader("✍️ Roast Text")
@@ -238,7 +238,7 @@ def main():
 
         st.markdown("---")
 
-        if st.button("🚀 Generate Video", type="primary", use_container_width=True):
+        if st.button("🚀 Generate Video", type="primary"):
             if not uploaded_file:
                 st.error("⚠️ Please upload a pet image!")
             elif not roast_text.strip():
@@ -285,10 +285,20 @@ def main():
                                 st.error(f"❌ {error_detail.get('message', 'Bad request')}")
                                 if error_detail.get("suggestion"):
                                     st.info(f"💡 {error_detail['suggestion']}")
+                            elif isinstance(error_detail, list):
+                                # Pydantic validation errors
+                                st.error("❌ Validation Error:")
+                                for err in error_detail:
+                                    st.write(f"- {err.get('msg', 'Unknown error')}")
                             else:
                                 st.error(f"❌ {error_detail}")
+                            # Show full response for debugging
+                            with st.expander("Show full error details"):
+                                st.json(result)
                         else:
                             st.error(f"❌ Error: {result.get('detail', 'Unknown error')}")
+                            with st.expander("Show full error details"):
+                                st.json(result)
 
     # Tab 2: Check Status
     with tab2:

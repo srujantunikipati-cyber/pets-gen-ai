@@ -6,9 +6,6 @@ pydantic==2.7.1
 pydantic-settings==2.5.2
 python-dotenv==1.0.0
 
-# Job Storage & Caching
-redis==5.1.1
-
 # Retry Logic
 tenacity==9.0.0
 

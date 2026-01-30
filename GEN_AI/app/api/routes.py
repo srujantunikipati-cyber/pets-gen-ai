@@ -123,7 +123,7 @@ async def generate_video(
     payload: GenerateVideoRequest,
     request: Request,
     ai4bharat_client: AI4BharatClient = Depends(get_ai4bharat_client),
-    fal_client: FalClient = Depends(get_fal_client),
+    fal_client: Optional[FalClient] = Depends(get_fal_client),
     job_store: JobStore = Depends(get_job_store),
     audio_service: Optional[AudioExtractionService] = Depends(get_audio_extraction_service_dependency),
     stt_service: Optional[SpeechToTextService] = Depends(get_speech_to_text_service_dependency),
@@ -133,7 +133,12 @@ async def generate_video(
 
     Supports two modes:
     1. Text + Image: Provide text and image_url/image_data
-    2. Video Input: Provide video_data/video_url (audio extracted, converted to text, filtered)
+    2. Video Input (VOICE ONLY): Provide video_data/video_url
+       - Extracts audio from video
+       - Converts speech to text (in original language)
+       - Filters content using AI4Bharat
+       - Extracts frame for pet detection
+       - Generates roast video using processed text
     
     This endpoint validates that the image/video contains pets before generating video.
     """
@@ -143,26 +148,30 @@ async def generate_video(
     from PIL import Image
     import io
     import numpy as np
+
+    if not fal_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Video generation is not configured. Set FAL_API_KEY in the environment.",
+        )
     
     pet_detector = get_pet_detector()
     final_image_url: str = None
     clean_text: str = None
     detected_language: str = "en"
     
-    # MODE 1: Video Input (extract audio, convert to text, filter)
+    # MODE 1: Video Input (extract audio + STT)
     if payload.video_data or payload.video_url:
         _logger.info("📹 Processing video input mode")
         
-        if not audio_service:
+        # Check if audio/STT services are available
+        if not (audio_service and stt_service):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Audio extraction service not available. Install moviepy."
+                detail="Audio extraction and speech-to-text services are required for video input mode but not available.",
             )
-        if not stt_service:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Speech-to-text service not available. Install openai-whisper."
-            )
+        
+        _logger.info("🎵 Starting audio extraction and speech-to-text pipeline...")
         
         try:
             # Step 1: Extract audio from video
@@ -189,7 +198,7 @@ async def generate_video(
             
             _logger.info(f"✅ Audio extracted: {len(audio_bytes)} bytes")
             
-            # Step 2: Convert audio to text (STT)
+            # Step 2: Convert audio to text (STT) in original language
             _logger.info("🎤 Converting speech to text...")
             stt_result = await stt_service.transcribe_audio_bytes(audio_bytes)
             extracted_text = stt_result.get("text", "").strip()
@@ -203,20 +212,39 @@ async def generate_video(
             
             _logger.info(f"✅ Text extracted: '{extracted_text[:100]}...' (language: {detected_language})")
             
-            # Step 3: Filter abusive words using LLM
-            _logger.info("🛡️ Filtering abusive content...")
-            filter_result = await content_filter.filter_abusive_content(extracted_text, detected_language)
-            clean_text = filter_result["filtered_text"]
-            
-            if filter_result["has_abusive_content"]:
-                _logger.info("⚠️ Abusive content detected and filtered")
-            
-            _logger.info(f"✅ Filtered text: '{clean_text[:100]}...'")
-            
-            # Step 4: Extract image frame from video for pet detection
-            _logger.info("🖼️ Extracting frame from video for pet detection...")
+            # Step 3: Use AI4Bharat for content filtering/processing
+            _logger.info("🛡️ Processing text with AI4Bharat for filtering...")
             try:
-                from moviepy.editor import VideoFileClip
+                # Use AI4Bharat to process/filter the text
+                # If content filter service is available, use it first
+                if content_filter:
+                    filter_result = await content_filter.filter_abusive_content(extracted_text, detected_language)
+                    extracted_text = filter_result["filtered_text"]
+                    if filter_result["has_abusive_content"]:
+                        _logger.info("⚠️ Abusive content detected and filtered")
+                
+                # Then use AI4Bharat for additional processing/translation if needed
+                ai4bharat_result = await ai4bharat_client.translate_text(
+                    text=extracted_text,
+                    source_language="auto",
+                    target_language=detected_language,  # Keep in original language
+                    task="translation",
+                )
+                clean_text = _extract_translated_text(ai4bharat_result)
+                _logger.info(f"✅ AI4Bharat processed text: '{clean_text[:100]}...'")
+            except Exception as e:
+                _logger.warning(f"AI4Bharat processing failed, using filtered text: {e}")
+                clean_text = extracted_text
+            
+            # Step 4: Extract image frame from video for pet detection and video generation
+            _logger.info("🖼️ Extracting frame from video...")
+            try:
+                try:
+                    # Try newer moviepy 2.x import first
+                    from moviepy import VideoFileClip
+                except ImportError:
+                    # Fall back to older moviepy 1.x import
+                    from moviepy.editor import VideoFileClip
                 
                 # Save video to temp file if needed
                 temp_video_path = None
@@ -242,7 +270,7 @@ async def generate_video(
                         temp_video_path = temp_video.name
                 
                 try:
-                    # Extract frame at 1 second (or first frame if video is shorter)
+                    # Extract frame at 1 second (or middle of video)
                     video = VideoFileClip(temp_video_path)
                     duration = video.duration
                     frame_time = min(1.0, duration / 2)  # Use middle of video or 1 second
@@ -252,12 +280,14 @@ async def generate_video(
                     # Convert frame to PIL Image
                     frame_image = Image.fromarray(frame.astype('uint8'))
                     
-                    # Convert to base64 data URL
+                    # Convert to base64 data URL for fal.ai
                     img_bytes = io.BytesIO()
                     frame_image.save(img_bytes, format='PNG')
                     img_bytes.seek(0)
                     img_base64 = base64.b64encode(img_bytes.read()).decode('utf-8')
                     final_image_url = f"data:image/png;base64,{img_base64}"
+                    
+                    _logger.info("✅ Frame extracted successfully")
                     
                 finally:
                     if temp_video_path and os.path.exists(temp_video_path):

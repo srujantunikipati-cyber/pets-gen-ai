@@ -33,10 +33,10 @@ def get_ai4bharat_client(request: Request) -> AI4BharatClient:
     return request.app.state.ai4bharat_client
 
 
-def get_fal_client(request: Request) -> FalClient:
-    """Fetch the fal.ai client from the application state."""
+def get_fal_client(request: Request) -> Optional[FalClient]:
+    """Fetch the fal.ai client from the application state (None if FAL_API_KEY not set)."""
 
-    return request.app.state.fal_client
+    return getattr(request.app.state, "fal_client", None)
 
 
 def get_video_storage(request: Request) -> VideoStorageService:

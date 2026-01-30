@@ -30,8 +30,8 @@ class Settings(BaseSettings):
     pets_backend_enabled: bool = False  # Enable/disable pets-backend integration
     pets_backend_api_url: Optional[str] = None  # REST API URL (if different from GraphQL URL)
 
-    # fal.ai API configuration for video generation
-    fal_api_key: str = Field(default=...)
+    # fal.ai API configuration for video generation (optional for startup; 503 if missing on generate-video)
+    fal_api_key: Optional[str] = Field(default=None)
     fal_base_url: str = "https://queue.fal.run"  # fal.ai queue endpoint
     fal_model_id: str = "fal-ai/minimax-video"
     fal_webhook_secret: Optional[str] = None
@@ -63,9 +63,9 @@ class Settings(BaseSettings):
     video_storage_path: str = "storage/videos"  # Local directory for storing videos
 
 
-    # Redis configuration for persistent job storage
+    # Job storage: in-memory only (no Redis on Railway by default)
     redis_url: str = "redis://localhost:6379/0"
-    use_redis: bool = True
+    use_redis: bool = False  # Default False for Railway; set True only if Redis is configured
     redis_job_ttl_seconds: int = 86400 * 7  # 7 days
 
     # Backend webhook configuration (for notifying Railway backend)

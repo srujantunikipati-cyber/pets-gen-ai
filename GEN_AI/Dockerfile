@@ -38,6 +38,10 @@ COPY app/ ./app/
 # Copy IndicTrans2 (exclude large files via .dockerignore)
 COPY IndicTrans2/ ./IndicTrans2/
 
+# Copy startup script
+COPY start.sh ./
+RUN chmod +x start.sh
+
 # Create necessary directories
 RUN mkdir -p logs storage/videos && \
     chmod -R 755 storage logs
@@ -51,7 +55,10 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD ["sh", "-c", "curl -f http://localhost:${PORT:-8000}/healthz || exit 1"]
+    CMD curl -f http://localhost:${PORT:-8000}/healthz || exit 1
 
-# Run the application
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+# Environment variable for port
+ENV PORT=8000
+
+# Run uvicorn directly - Railway will override PORT at runtime
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers 1
