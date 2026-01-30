@@ -174,43 +174,55 @@ async def generate_video(
         _logger.info("🎵 Starting audio extraction and speech-to-text pipeline...")
         
         try:
-            # Step 1: Extract audio from video
-            _logger.info("🎵 Extracting audio from video...")
-            if payload.video_data:
-                audio_bytes = await audio_service.extract_audio_from_video_data(payload.video_data)
-            else:
-                # Download video from URL first
-                async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-                    video_response = await client.get(payload.video_url)
-                    video_response.raise_for_status()
-                    video_bytes = video_response.content
+            # Step 1: Try to extract audio from video (optional for videos without audio)
+            _logger.info("🎵 Attempting to extract audio from video...")
+            extracted_text = None
+            audio_extraction_failed = False
+            
+            try:
+                if payload.video_data:
+                    audio_bytes = await audio_service.extract_audio_from_video_data(payload.video_data)
+                else:
+                    # Download video from URL first
+                    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+                        video_response = await client.get(payload.video_url)
+                        video_response.raise_for_status()
+                        video_bytes = video_response.content
+                    
+                    # Save to temp file and extract audio
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+                        temp_video.write(video_bytes)
+                        temp_video_path = temp_video.name
+                    
+                    try:
+                        audio_bytes = await audio_service.extract_audio_from_video_file(temp_video_path)
+                    finally:
+                        if os.path.exists(temp_video_path):
+                            os.unlink(temp_video_path)
                 
-                # Save to temp file and extract audio
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
-                    temp_video.write(video_bytes)
-                    temp_video_path = temp_video.name
+                _logger.info(f"✅ Audio extracted: {len(audio_bytes)} bytes")
                 
-                try:
-                    audio_bytes = await audio_service.extract_audio_from_video_file(temp_video_path)
-                finally:
-                    if os.path.exists(temp_video_path):
-                        os.unlink(temp_video_path)
+                # Step 2: Convert audio to text (STT) in original language
+                _logger.info("🎤 Converting speech to text...")
+                stt_result = await stt_service.transcribe_audio_bytes(audio_bytes)
+                extracted_text = stt_result.get("text", "").strip()
+                detected_language = stt_result.get("language", "en")
+                
+                if extracted_text:
+                    _logger.info(f"✅ Text extracted: '{extracted_text[:100]}...' (language: {detected_language})")
+                else:
+                    _logger.warning("⚠️ No speech detected in video audio")
+                    audio_extraction_failed = True
+                    
+            except Exception as audio_error:
+                _logger.warning(f"⚠️ Audio extraction failed: {audio_error}. Using default prompt for video without audio.")
+                audio_extraction_failed = True
             
-            _logger.info(f"✅ Audio extracted: {len(audio_bytes)} bytes")
-            
-            # Step 2: Convert audio to text (STT) in original language
-            _logger.info("🎤 Converting speech to text...")
-            stt_result = await stt_service.transcribe_audio_bytes(audio_bytes)
-            extracted_text = stt_result.get("text", "").strip()
-            detected_language = stt_result.get("language", "en")
-            
-            if not extracted_text:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No speech detected in video audio. Please ensure the video has clear audio."
-                )
-            
-            _logger.info(f"✅ Text extracted: '{extracted_text[:100]}...' (language: {detected_language})")
+            # If no audio or extraction failed, use default prompt
+            if audio_extraction_failed or not extracted_text:
+                extracted_text = "Generate a fun and entertaining roast video for this adorable pet"
+                detected_language = "en"
+                _logger.info(f"📝 Using default prompt: '{extracted_text}'")
             
             # Step 3: Use AI4Bharat for content filtering/processing
             _logger.info("🛡️ Processing text with AI4Bharat for filtering...")
