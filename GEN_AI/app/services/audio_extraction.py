@@ -82,7 +82,6 @@ class AudioExtractionService:
                     audio.write_audiofile(
                         temp_audio_path,
                         codec='pcm_s16le' if output_format == 'wav' else 'libmp3lame',
-                        verbose=False,
                         logger=None
                     )
                     
@@ -136,7 +135,6 @@ class AudioExtractionService:
                 audio.write_audiofile(
                     temp_audio_path,
                     codec='pcm_s16le' if output_format == 'wav' else 'libmp3lame',
-                    verbose=False,
                     logger=None
                 )
                 
