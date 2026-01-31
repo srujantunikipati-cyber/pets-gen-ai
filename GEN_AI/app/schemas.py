@@ -106,9 +106,24 @@ class GenerateVideoRequest(BaseModel):
         if has_video:
             return self
         
+        # Provide clear error messages for each case
+        if has_text and not has_image:
+            raise ValueError(
+                "When providing 'text', you must also provide either 'imageUrl'/'imageData' or 'image_url'/'image_data'. "
+                "Example: {\"text\": \"Roast this dog\", \"imageUrl\": \"https://example.com/dog.jpg\"}"
+            )
+        
+        if has_image and not has_text:
+            raise ValueError(
+                "When providing an image, you must also provide 'text'. "
+                "Example: {\"text\": \"Roast this cute pet\", \"imageUrl\": \"https://example.com/pet.jpg\"}"
+            )
+        
         raise ValueError(
-            "Either provide (text + image_url/image_data) OR (video_url/video_data/video). "
-            "For video input, audio will be extracted and converted to text."
+            "Invalid input. Please provide one of the following:\n"
+            "1. Text + Image: {\"text\": \"...\", \"imageUrl\": \"...\"} OR {\"text\": \"...\", \"imageData\": \"data:image/...\"}\n"
+            "2. Video only: {\"videoUrl\": \"...\"} OR {\"videoData\": \"data:video/...\"} OR {\"video\": \"...\"}\n"
+            "For video input, audio will be automatically extracted and converted to text."
         )
 
 

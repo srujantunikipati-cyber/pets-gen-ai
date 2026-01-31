@@ -768,13 +768,13 @@ async def get_video_result(
                 if not record.video_url:
                     raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
             
+            # Video is still processing - return current status instead of error
             if not record.video_url:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Video asset not ready yet. Please try again in a few moments.",
-                )
-            
-            # Automatically download and save video to local storage
+                return VideoResultResponse(
+                    job_id=job_id,
+                    status=record.status,
+                    video_url=None,
+                    detail="Video is still processing. Please check again in a few moments.",
             if record.video_url:
                 try:
                     local_path = await video_storage.download_and_save_video(
