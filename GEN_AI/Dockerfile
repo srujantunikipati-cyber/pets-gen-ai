@@ -54,9 +54,10 @@ RUN mkdir -p logs storage/videos && \
 # Expose port
 EXPOSE 8000
 
-# Health check
+# Health check - Railway uses port 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8080/healthz || exit 1
 
-# Use Python to start uvicorn with proper PORT handling
-CMD python -c "import os, uvicorn; uvicorn.run('app.main:app', host='0.0.0.0', port=int(os.getenv('PORT', 8080)), workers=1)"
+# Railway expects applications to listen on the PORT environment variable
+# We'll use bash to properly expand it
+CMD ["/bin/bash", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1"]
