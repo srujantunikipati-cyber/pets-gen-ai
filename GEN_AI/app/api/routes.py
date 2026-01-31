@@ -365,7 +365,7 @@ async def generate_video(
 
         _logger.info(f"✅ Pets detected: {', '.join(detected_pets)}")
 
-        # Step 2: Process text via AI4Bharat
+        # Step 2: Process text via AI4Bharat (optional - fallback to original text)
         if not payload.text:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -380,9 +380,11 @@ async def generate_video(
                 task="translation",
             )
             clean_text = _extract_translated_text(llm_result)
+            _logger.info("✅ AI4Bharat processing successful")
         except (AI4BharatAPIError, KeyError) as exc:
-            _logger.exception("AI4Bharat preprocessing failed for video generation")
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+            _logger.warning(f"AI4Bharat preprocessing failed, using original text: {exc}")
+            clean_text = payload.text  # Fallback to original text
+            detected_language = "en"
     
     # Validate pet presence in final image (for both modes)
     async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
