@@ -301,6 +301,27 @@ async def generate_video(
                     
                     _logger.info("✅ Frame extracted successfully")
                     
+                    # Check for pets in the extracted frame
+                    _logger.info("🔍 Checking for pets in video frame...")
+                    async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+                        has_pets, detected_pets, _ = await pet_detector.detect_pets_in_image_url(
+                            final_image_url,
+                            client
+                        )
+                    
+                    if not has_pets:
+                        _logger.warning(f"No pets detected in video")
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail={
+                                "error": "no_pets_detected",
+                                "message": "No pets found in the uploaded video. Please upload a video containing pets (dogs, cats, birds, etc.) to generate a roast video.",
+                                "suggestion": "Make sure your pet is clearly visible in the video."
+                            }
+                        )
+                    
+                    _logger.info(f"✅ Pets detected in video: {', '.join(detected_pets)}")
+                    
                 finally:
                     if temp_video_path and os.path.exists(temp_video_path):
                         os.unlink(temp_video_path)
