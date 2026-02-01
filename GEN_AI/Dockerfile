@@ -51,6 +51,10 @@ RUN mkdir -p logs storage/videos && \
 # This saves ~200MB in the image
 # The model will be downloaded automatically on first use
 
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Expose port
 EXPOSE 8000
 
@@ -58,6 +62,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8080/healthz || exit 1
 
-# Railway expects applications to listen on the PORT environment variable
-# We'll use bash to properly expand it
-CMD ["/bin/bash", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1"]
+# Use entrypoint script to properly handle PORT variable
+ENTRYPOINT ["/entrypoint.sh"]
