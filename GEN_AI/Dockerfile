@@ -39,20 +39,16 @@ COPY app/ ./app/
 # Copy IndicTrans2 (exclude large files via .dockerignore)
 COPY IndicTrans2/ ./IndicTrans2/
 
-# Copy entrypoint script for handling PORT variable
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
 # Create necessary directories
 RUN mkdir -p logs storage/videos && \
     chmod -R 755 storage logs
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8080
 
-# Health check - Railway uses port 8080
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8080/healthz || exit 1
 
-# Use entrypoint script to properly handle PORT variable
-ENTRYPOINT ["/entrypoint.sh"]
+# Railway uses port 8080 - hardcode it to avoid PORT variable issues
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
