@@ -1,6 +1,9 @@
 # Multi-stage build to reduce final image size
-# Build: 2026-01-30 15:30 - Added ultralytics + support videos without audio
+# Build: 2026-02-01 - FIXED PORT ISSUE - Hardcoded 8080
 FROM python:3.10-slim as builder
+
+# Force rebuild - timestamp: 2026-02-01-11:30
+RUN echo "Building with hardcoded port 8080" > /tmp/build-info.txt
 
 # Install build dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
