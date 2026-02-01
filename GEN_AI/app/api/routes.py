@@ -775,6 +775,7 @@ async def get_video_result(
                     status=record.status,
                     video_url=None,
                     detail="Video is still processing. Please check again in a few moments.",
+                )
             if record.video_url:
                 try:
                     local_path = await video_storage.download_and_save_video(
