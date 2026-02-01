@@ -25,6 +25,7 @@ from app.dependencies import (
 from app.services.audio_extraction import AudioExtractionService, AudioExtractionError
 from app.services.speech_to_text import SpeechToTextService, SpeechToTextError
 from app.services.content_filter import ContentFilterService
+from app.services.savage_prompts import get_savage_prompt_generator
 from typing import Optional
 from app.schemas import (
     BanubaFilter,
@@ -215,14 +216,16 @@ async def generate_video(
                     audio_extraction_failed = True
                     
             except Exception as audio_error:
-                _logger.warning(f"⚠️ Audio extraction failed: {audio_error}. Using default prompt for video without audio.")
+                _logger.warning(f"⚠️ Audio extraction failed: {audio_error}. Using savage roast prompt for video without audio.")
                 audio_extraction_failed = True
             
-            # If no audio or extraction failed, use default prompt
+            # If no audio or extraction failed, use a savage roast prompt
             if audio_extraction_failed or not extracted_text:
-                extracted_text = "Generate a fun and entertaining roast video for this adorable pet"
+                # Generate a savage roast prompt automatically
+                savage_generator = get_savage_prompt_generator()
+                extracted_text = savage_generator.generate_savage_prompt(pet_type="general")
                 detected_language = "en"
-                _logger.info(f"📝 Using default prompt: '{extracted_text}'")
+                _logger.info(f"🔥 Using savage roast prompt: '{extracted_text}'")
             
             # Step 3: Use AI4Bharat for content filtering/processing
             _logger.info("🛡️ Processing text with AI4Bharat for filtering...")
