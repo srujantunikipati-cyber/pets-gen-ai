@@ -39,21 +39,13 @@ COPY app/ ./app/
 # Copy IndicTrans2 (exclude large files via .dockerignore)
 COPY IndicTrans2/ ./IndicTrans2/
 
-# Copy startup script
-COPY start.sh ./
-RUN chmod +x start.sh
+# Copy entrypoint script for handling PORT variable
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Create necessary directories
 RUN mkdir -p logs storage/videos && \
     chmod -R 755 storage logs
-
-# Don't download YOLO model at build time - download at runtime
-# This saves ~200MB in the image
-# The model will be downloaded automatically on first use
-
-# Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 # Expose port
 EXPOSE 8000
