@@ -25,7 +25,7 @@ curl -X POST https://pets-gen-ai-production-7245.up.railway.app/generate-video \
   -H "Content-Type: application/json" \
   -d '{
     "text": "This playful golden retriever loves running in the park and chasing balls",
-    "image_url": "https://images.dog.ceo/breeds/retriever-golden/n02099601_1003.jpg"
+    "imageUrl": "https://images.dog.ceo/breeds/retriever-golden/n02099601_1003.jpg"
   }'
 ```
 
@@ -133,7 +133,7 @@ RESPONSE=$(curl -s -X POST https://pets-gen-ai-production-7245.up.railway.app/ge
   -H "Content-Type: application/json" \
   -d '{
     "text": "This adorable dog loves playing fetch",
-    "image_url": "https://images.dog.ceo/breeds/retriever-golden/n02099601_1003.jpg"
+    "imageUrl": "https://images.dog.ceo/breeds/retriever-golden/n02099601_1003.jpg"
   }')
 
 JOB_ID=$(echo "$RESPONSE" | jq -r '.job_id')

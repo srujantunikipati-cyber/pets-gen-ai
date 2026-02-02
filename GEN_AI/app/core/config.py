@@ -33,8 +33,19 @@ class Settings(BaseSettings):
     # fal.ai API configuration for video generation (optional for startup; 503 if missing on generate-video)
     fal_api_key: Optional[str] = Field(default=None)
     fal_base_url: str = "https://queue.fal.run"  # fal.ai queue endpoint
-    fal_model_id: str = "fal-ai/minimax-video/image-to-video"  # image-to-video endpoint
+    # Video model options (cost per video):
+    # - fal-ai/fast-svd/image-to-video: $0.05 (RECOMMENDED - 90% cheaper!)
+    # - fal-ai/fast-animatediff/image-to-video: $0.02 (cheapest)
+    # - fal-ai/minimax-video/image-to-video: $0.50 (premium quality)
+    fal_model_id: str = "fal-ai/fast-svd/image-to-video"  # Low cost model - $0.05 per video
     fal_webhook_secret: Optional[str] = None
+    
+    # Audio generation configuration (optional)
+    audio_enabled: bool = False  # Enable/disable audio generation
+    audio_provider: str = "google-tts"  # Options: google-tts, elevenlabs, openai-tts
+    google_tts_api_key: Optional[str] = Field(default=None)
+    elevenlabs_api_key: Optional[str] = Field(default=None)
+    openai_tts_api_key: Optional[str] = Field(default=None)
 
     banuba_filters: List[BanubaFilterConfig] = Field(
         default_factory=lambda: [

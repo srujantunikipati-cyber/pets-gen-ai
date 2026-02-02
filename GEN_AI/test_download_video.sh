@@ -16,7 +16,7 @@ RESPONSE=$(curl -s -X POST "$BASE_URL/generate-video" \
   -H "Content-Type: application/json" \
   -d '{
     "text": "This adorable golden retriever loves playing fetch and running in the park",
-    "image_url": "https://images.dog.ceo/breeds/retriever-golden/n02099601_1003.jpg"
+    "imageUrl": "https://images.dog.ceo/breeds/retriever-golden/n02099601_1003.jpg"
   }')
 
 echo "$RESPONSE" | jq '.'
