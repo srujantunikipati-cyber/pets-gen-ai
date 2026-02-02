@@ -65,24 +65,25 @@ class FalClient:
             payload = {
                 "prompt": text,
                 "image_url": image_url,
-                "num_frames": 80,  # 10 seconds at 8fps
+                "num_frames": 96,  # 12 seconds at 8fps
                 "num_inference_steps": 25,
             }
         elif "svd" in self._model_id.lower():
-            # Fast-SVD format ($0.05/video) - 10 second videos
+            # Fast-SVD format ($0.05/video) - 12 second videos
             payload = {
                 "prompt": text,
                 "image_url": image_url,
                 "motion_bucket_id": 127,  # Medium motion
-                "num_frames": 80,  # 10 seconds
+                "num_frames": 96,  # 12 seconds at 8fps
                 "fps": 8,
             }
         else:
-            # Default format (minimax-video, etc)
+            # Default format (minimax-video, etc) - supports longer videos
             payload = {
                 "prompt": text,
                 "image_url": image_url,
                 "prompt_optimizer": True,
+                "duration": "12",  # 12 second videos
             }
         
         # Add webhook URL if available (fal.ai supports webhook_url in request)
