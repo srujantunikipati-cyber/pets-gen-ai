@@ -70,6 +70,10 @@ class GenerateVideoRequest(BaseModel):
     video_data: Optional[str] = Field(None, description="Base64 video (data:video/...;base64,...)", alias="videoData")
     video: Optional[str] = Field(None, description="Video URL or data (alias for video_url)")
     
+    # Audio options
+    audio_enabled: bool = Field(default=True, description="Enable audio generation")
+    audio_voice: str = Field(default="en-US-Neural2-F", description="Voice ID: en-US-Neural2-F (female) or en-US-Neural2-D (male)")
+    
     # pets-backend integration fields (optional)
     user_id: Optional[str] = Field(None, alias="userId")
     auth_token: Optional[str] = Field(None, alias="authToken")
