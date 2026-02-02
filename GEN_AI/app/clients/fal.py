@@ -140,9 +140,12 @@ class FalClient:
         Returns:
             Dictionary containing status, video_url if available, and other metadata
         """
-        # fal.ai status endpoint format: https://queue.fal.run/{model_id}/requests/{job_id}/status
+        # fal.ai status endpoint format: https://queue.fal.run/{base_model}/requests/{job_id}/status
+        # Note: Status URL uses base model path (fal-ai/minimax-video), NOT the sub-endpoint (/image-to-video)
         if "queue.fal.run" in self._base_url or "api.fal.ai" in self._base_url:
-            url = f"https://queue.fal.run/{self._model_id}/requests/{job_id}/status"
+            # Extract base model: "fal-ai/minimax-video/image-to-video" → "fal-ai/minimax-video"
+            base_model = self._model_id.split('/image-to-video')[0].split('/text-to-video')[0]
+            url = f"https://queue.fal.run/{base_model}/requests/{job_id}/status"
         else:
             url = f"{self._base_url}/v1/queue/{self._model_id}/requests/{job_id}/status"
 
