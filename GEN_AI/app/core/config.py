@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # fal.ai API configuration for video generation (optional for startup; 503 if missing on generate-video)
     fal_api_key: Optional[str] = Field(default=None)
     fal_base_url: str = "https://queue.fal.run"  # fal.ai queue endpoint
-    fal_model_id: str = "fal-ai/minimax-video"
+    fal_model_id: str = "fal-ai/minimax-video/image-to-video"  # image-to-video endpoint
     fal_webhook_secret: Optional[str] = None
 
     banuba_filters: List[BanubaFilterConfig] = Field(
