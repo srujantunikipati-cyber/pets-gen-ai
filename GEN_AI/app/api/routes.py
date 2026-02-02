@@ -773,6 +773,14 @@ async def get_video_result(
             
             # Video is still processing - return current status instead of error
             if not record.video_url:
+                # Check if status is completed but no video_url - this means job failed
+                if record.status == JobStatus.COMPLETED:
+                    return VideoResultResponse(
+                        job_id=job_id,
+                        status=JobStatus.FAILED,
+                        video_url=None,
+                        detail="Video generation completed but no video URL was returned by FAL.ai. The job may have failed. Please try generating a new video.",
+                    )
                 return VideoResultResponse(
                     job_id=job_id,
                     status=record.status,
