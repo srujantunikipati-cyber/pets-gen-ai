@@ -5,6 +5,7 @@ import logging
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import StreamingResponse, RedirectResponse
 import httpx
 
 from app.clients.ai4bharat import AI4BharatClient
@@ -819,6 +820,59 @@ async def get_video_result(
         video_url=record.video_url,
         detail=record.detail,
     )
+
+
+@router.get("/download-video/{job_id}")
+async def download_video(
+    job_id: str,
+    job_store: JobStore = Depends(get_job_store),
+) -> Response:
+    """Download the generated video file directly.
+    
+    Returns the video as a streaming download with proper Content-Disposition headers.
+    If video isn't ready, redirects to the FAL.ai URL.
+    """
+    record = await job_store.get(job_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    
+    if not record.video_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Video not available yet. Check status first."
+        )
+    
+    # Stream video from FAL.ai URL with download headers
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            async with client.stream("GET", record.video_url) as response:
+                response.raise_for_status()
+                
+                # Get content type and length
+                content_type = response.headers.get("content-type", "video/mp4")
+                content_length = response.headers.get("content-length")
+                
+                # Create streaming response with download headers
+                headers = {
+                    "Content-Disposition": f'attachment; filename="pet_video_{job_id}.mp4"',
+                    "Content-Type": content_type,
+                }
+                if content_length:
+                    headers["Content-Length"] = content_length
+                
+                async def stream_video():
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        yield chunk
+                
+                return StreamingResponse(
+                    stream_video(),
+                    headers=headers,
+                    media_type=content_type,
+                )
+    except httpx.HTTPError as e:
+        _logger.error(f"Failed to stream video for job {job_id}: {e}")
+        # Fallback: redirect to FAL.ai URL
+        return RedirectResponse(url=record.video_url)
 
 
 @router.get("/test-backend-connection")

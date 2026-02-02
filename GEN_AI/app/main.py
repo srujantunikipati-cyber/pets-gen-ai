@@ -118,6 +118,29 @@ app.add_middleware(
 
 app.include_router(api_router)
 
+# Add routes without /api prefix for convenience
+from app.api import routes as api_routes_module
+
+@app.post("/generate-video")
+async def generate_video_shortcut(*args, **kwargs):
+    """Generate video (shortcut without /api prefix)"""
+    return await api_routes_module.generate_video(*args, **kwargs)
+
+@app.get("/video-status/{job_id}")
+async def video_status_shortcut(*args, **kwargs):
+    """Check video status (shortcut without /api prefix)"""
+    return await api_routes_module.video_status(*args, **kwargs)
+
+@app.get("/video-result/{job_id}")
+async def video_result_shortcut(*args, **kwargs):
+    """Get video result (shortcut without /api prefix)"""
+    return await api_routes_module.video_result(*args, **kwargs)
+
+@app.get("/download-video/{job_id}")
+async def download_video_shortcut(*args, **kwargs):
+    """Download video (shortcut without /api prefix)"""
+    return await api_routes_module.download_video(*args, **kwargs)
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
