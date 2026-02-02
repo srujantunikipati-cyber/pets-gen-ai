@@ -40,7 +40,9 @@ wheels/
 Thumbs.db
 
 # Project specific
-storage/
+storage/videos/
+storage/*.mp4
+storage/*.avi
 *.pt
 *.pth
 *.log
@@ -48,4 +50,5 @@ storage/
 
 # Keep these
 !.env.example
+!storage/music/
 !.env.railway

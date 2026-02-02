@@ -41,8 +41,9 @@ class Settings(BaseSettings):
     fal_model_id: str = "fal-ai/fast-animatediff/image-to-video"  # CHEAPEST - $0.02 per video
     fal_webhook_secret: Optional[str] = None
         # Video generation controls (cost optimization)
-    video_length_seconds: int = 3  # Default video length (shorter = cheaper)
+    video_length_seconds: int = 10  # Default video length - 10 seconds minimum
     video_fps: int = 8  # Frames per second (lower = cheaper)
+    video_num_frames: int = 80  # Total frames (10 seconds * 8 fps)
     enable_motion_boost: bool = False  # Extra motion (costs more)
         # Audio generation configuration (optional)
     audio_enabled: bool = False  # Enable/disable audio generation

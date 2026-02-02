@@ -13,30 +13,36 @@ _logger = logging.getLogger(__name__)
 class MusicService:
     """Service for adding background music to videos."""
     
-    # Free royalty-free music tracks (short loops)
+    # Free royalty-free music tracks (local files)
     MUSIC_LIBRARY = {
         "playful": {
+            "path": "storage/music/music_1.mp3",
             "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
             "description": "Playful and fun music for energetic pets"
         },
         "happy": {
+            "path": "storage/music/music_2.mp3",
             "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
             "description": "Happy upbeat music"
         },
         "calm": {
+            "path": "storage/music/music_3.mp3",
             "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
             "description": "Calm and relaxing background music"
         },
         "energetic": {
+            "path": "storage/music/music_4.mp3",
             "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
             "description": "High energy music for active pets"
         },
         "funny": {
-            "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+            "path": "storage/music/music_5.mp3",
+            "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
             "description": "Funny and silly music"
         },
         "cute": {
-            "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+            "path": "storage/music/music_2.mp3",
+            "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
             "description": "Cute and adorable music for sweet pets"
         }
     }
@@ -84,6 +90,7 @@ class MusicService:
             
             music_info = self.MUSIC_LIBRARY[music_style]
             music_url = music_info["url"]
+            local_music_path = music_info.get("path")
             
             _logger.info(f"Adding {music_style} music to video (volume: {volume})")
             
@@ -97,13 +104,22 @@ class MusicService:
                 video_file.write(video_response.content)
                 video_path = video_file.name
             
-            # Download music
-            music_response = await client.get(music_url)
-            music_response.raise_for_status()
-            
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as music_file:
-                music_file.write(music_response.content)
-                music_path = music_file.name
+            # Use local music if available, otherwise download
+            music_path = None
+            if local_music_path and os.path.exists(local_music_path):
+                _logger.info(f"Using local music file: {local_music_path}")
+                music_path = local_music_path
+                cleanup_music = False
+            else:
+                # Download music
+                _logger.info(f"Downloading music from: {music_url}")
+                music_response = await client.get(music_url)
+                music_response.raise_for_status()
+                
+                with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as music_file:
+                    music_file.write(music_response.content)
+                    music_path = music_file.name
+                cleanup_music = True
             
             # Output path
             if output_path is None:
@@ -165,7 +181,8 @@ class MusicService:
             # Cleanup temp files
             try:
                 os.unlink(video_path)
-                os.unlink(music_path)
+                if cleanup_music:
+                    os.unlink(music_path)
             except Exception as e:
                 _logger.warning(f"Could not cleanup temp files: {e}")
             
