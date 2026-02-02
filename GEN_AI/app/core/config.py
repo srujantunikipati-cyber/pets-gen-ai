@@ -34,13 +34,17 @@ class Settings(BaseSettings):
     fal_api_key: Optional[str] = Field(default=None)
     fal_base_url: str = "https://queue.fal.run"  # fal.ai queue endpoint
     # Video model options (cost per video):
-    # - fal-ai/fast-svd/image-to-video: $0.05 (RECOMMENDED - 90% cheaper!)
-    # - fal-ai/fast-animatediff/image-to-video: $0.02 (cheapest)
-    # - fal-ai/minimax-video/image-to-video: $0.50 (premium quality)
-    fal_model_id: str = "fal-ai/fast-svd/image-to-video"  # Low cost model - $0.05 per video
+    # - fal-ai/fast-animatediff/image-to-video: $0.02 (CHEAPEST - 96% savings!)
+    # - fal-ai/fast-svd/image-to-video: $0.05 (fast, good quality)
+    # - fal-ai/stable-video-diffusion: $0.05 (stable diffusion based)
+    # - fal-ai/minimax-video/image-to-video: $0.50 (premium quality - EXPENSIVE)
+    fal_model_id: str = "fal-ai/fast-animatediff/image-to-video"  # CHEAPEST - $0.02 per video
     fal_webhook_secret: Optional[str] = None
-    
-    # Audio generation configuration (optional)
+        # Video generation controls (cost optimization)
+    video_length_seconds: int = 3  # Default video length (shorter = cheaper)
+    video_fps: int = 8  # Frames per second (lower = cheaper)
+    enable_motion_boost: bool = False  # Extra motion (costs more)
+        # Audio generation configuration (optional)
     audio_enabled: bool = False  # Enable/disable audio generation
     audio_provider: str = "google-tts"  # Options: google-tts, elevenlabs, openai-tts
     google_tts_api_key: Optional[str] = Field(default=None)

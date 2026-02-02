@@ -59,12 +59,30 @@ class FalClient:
         _logger.info(f"fal.ai create_video_job: URL={url}, model_id={self._model_id}, base_url={self._base_url}")
         
         # Prepare payload according to fal.ai schema
-        # For /image-to-video endpoint, payload should be flat (not nested under "input")
-        payload = {
-            "prompt": text,
-            "image_url": image_url,
-            "prompt_optimizer": True,  # Enable prompt optimization
-        }
+        # Different models have different payload formats
+        if "animatediff" in self._model_id.lower():
+            # AnimateDiff format (cheapest: $0.02/video)
+            payload = {
+                "prompt": text,
+                "image_url": image_url,
+                "num_frames": 24,  # 3 seconds at 8fps (shorter = cheaper)
+                "num_inference_steps": 20,  # Lower = faster & cheaper
+            }
+        elif "svd" in self._model_id.lower():
+            # Fast-SVD format ($0.05/video)
+            payload = {
+                "prompt": text,
+                "image_url": image_url,
+                "motion_bucket_id": 100,  # Lower = less motion, cheaper
+                "num_frames": 24,
+            }
+        else:
+            # Default format (minimax-video, etc)
+            payload = {
+                "prompt": text,
+                "image_url": image_url,
+                "prompt_optimizer": True,
+            }
         
         # Add webhook URL if available (fal.ai supports webhook_url in request)
         # This allows fal.ai to notify us when the job completes
