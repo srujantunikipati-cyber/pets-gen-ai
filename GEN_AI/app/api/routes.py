@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -22,6 +23,7 @@ from app.dependencies import (
     get_audio_extraction_service_dependency,
     get_speech_to_text_service_dependency,
     get_content_filter_service_dependency,
+    get_music_service_dependency,
 )
 from app.services.audio_extraction import AudioExtractionService, AudioExtractionError
 from app.services.speech_to_text import SpeechToTextService, SpeechToTextError
@@ -42,6 +44,7 @@ from app.schemas import (
 from app.services.job_store import JobRecord, JobStatus, JobStore
 from app.services.pet_detection import get_pet_detector
 from app.services.video_storage import VideoStorageService
+from app.services.music import MusicService
 
 router = APIRouter(prefix="/api")
 _logger = logging.getLogger(__name__)
@@ -825,9 +828,17 @@ async def get_video_result(
 @router.get("/download-video/{job_id}")
 async def download_video(
     job_id: str,
+    add_music: bool = True,
+    music_style: str = "playful",
     job_store: JobStore = Depends(get_job_store),
+    music_service: MusicService = Depends(get_music_service_dependency),
 ) -> Response:
-    """Download the generated video file directly.
+    """Download the generated video file with optional background music.
+    
+    Args:
+        job_id: Job ID of the video
+        add_music: Whether to add background music (default: True)
+        music_style: Music style - playful, happy, calm, energetic, funny, cute
     
     Returns the video as a streaming download with proper Content-Disposition headers.
     If video isn't ready, redirects to the FAL.ai URL.
@@ -842,10 +853,54 @@ async def download_video(
             detail="Video not available yet. Check status first."
         )
     
-    # Stream video from FAL.ai URL with download headers
+    # If music is enabled, add it to the video
+    video_url_to_stream = record.video_url
+    temp_file_to_cleanup = None
+    
+    if add_music:
+        try:
+            _logger.info(f"🎵 Adding {music_style} music to video {job_id}")
+            video_with_music = await music_service.add_music_to_video(
+                video_url=record.video_url,
+                music_style=music_style,
+                volume=0.3
+            )
+            
+            if video_with_music and os.path.exists(video_with_music):
+                # Stream the local file with music
+                temp_file_to_cleanup = video_with_music
+                
+                def iterfile():
+                    with open(video_with_music, mode="rb") as file:
+                        yield from file
+                
+                file_size = os.path.getsize(video_with_music)
+                headers = {
+                    "Content-Disposition": f'attachment; filename="pet_video_{job_id}_with_music.mp4"',
+                    "Content-Type": "video/mp4",
+                    "Content-Length": str(file_size),
+                }
+                
+                response = StreamingResponse(
+                    iterfile(),
+                    headers=headers,
+                    media_type="video/mp4",
+                )
+                
+                # Schedule cleanup
+                import asyncio
+                asyncio.create_task(_cleanup_file_later(video_with_music, delay=5))
+                
+                return response
+            else:
+                _logger.warning("Music mixing failed, streaming original video")
+        except Exception as e:
+            _logger.error(f"Failed to add music: {e}, streaming original video")
+    
+    # Stream video from FAL.ai URL without music (or if music failed)
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-            async with client.stream("GET", record.video_url) as response:
+            async with client.stream("GET", video_url_to_stream) as response:
                 response.raise_for_status()
                 
                 # Get content type and length
@@ -873,6 +928,18 @@ async def download_video(
         _logger.error(f"Failed to stream video for job {job_id}: {e}")
         # Fallback: redirect to FAL.ai URL
         return RedirectResponse(url=record.video_url)
+
+
+async def _cleanup_file_later(filepath: str, delay: int = 5):
+    """Cleanup temp file after a delay."""
+    import asyncio
+    await asyncio.sleep(delay)
+    try:
+        if os.path.exists(filepath):
+            os.unlink(filepath)
+            _logger.debug(f"Cleaned up temp file: {filepath}")
+    except Exception as e:
+        _logger.warning(f"Could not cleanup temp file {filepath}: {e}")
 
 
 @router.get("/test-backend-connection")

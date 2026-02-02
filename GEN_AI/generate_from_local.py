@@ -9,8 +9,8 @@ import requests
 
 BASE_URL = "https://pets-gen-ai-production-7245.up.railway.app"
 
-def generate_video_with_audio(image_path: str, text: str, voice: str = "female"):
-    """Generate video from local image with audio."""
+def generate_video_with_audio(image_path: str, text: str, voice: str = "female", music_style: str = "playful"):
+    """Generate video from local image with audio and music."""
     
     print(f"\n{'='*60}")
     print(f"🎬 Generating Video from Local File")
@@ -31,12 +31,16 @@ def generate_video_with_audio(image_path: str, text: str, voice: str = "female")
         "imageData": f"data:image/jpeg;base64,{image_data}",
         "userId": "local-test",
         "audioEnabled": True,
-        "audioVoice": voice_id
+        "audioVoice": voice_id,
+        "musicEnabled": True,
+        "musicStyle": music_style,
+        "musicVolume": 0.3
     }
     
     print(f"\n🎬 Generating video...")
     print(f"📝 Text: {text}")
     print(f"🎤 Voice: {voice} ({voice_id})")
+    print(f"🎵 Music: {music_style}")
     print(f"💰 Cost: $0.02 (AnimateDiff model)")
     
     try:
@@ -47,7 +51,8 @@ def generate_video_with_audio(image_path: str, text: str, voice: str = "female")
             timeout=30
         )
         
-        if response.status_code != 200:
+        # Accept both 200 and 202 status codes
+        if response.status_code not in [200, 202]:
             print(f"\n❌ Error {response.status_code}:")
             print(response.text)
             return None
@@ -148,22 +153,26 @@ if __name__ == "__main__":
     image_file = "/tmp/pet_frame.jpg"
     text_prompt = "This adorable pet is full of energy and loves to play all day long!"
     voice_option = "female"  # or "male"
+    music_choice = "playful"  # playful, happy, calm, energetic, funny, cute
     
     # Allow command line arguments
     if len(sys.argv) > 1:
         text_prompt = sys.argv[1]
     if len(sys.argv) > 2:
         voice_option = sys.argv[2]
+    if len(sys.argv) > 3:
+        music_choice = sys.argv[3]
     
     print("\n💡 Usage:")
-    print(f"   python3 {sys.argv[0]} \"Your text here\" [female|male]")
+    print(f"   python3 {sys.argv[0]} \"Your text here\" [female|male] [playful|happy|calm|energetic|funny|cute]")
     print(f"\n📝 Current settings:")
     print(f"   Text: {text_prompt}")
     print(f"   Voice: {voice_option}")
+    print(f"   Music: {music_choice}")
     print(f"   Image: {image_file}")
     
     try:
-        video_url = generate_video_with_audio(image_file, text_prompt, voice_option)
+        video_url = generate_video_with_audio(image_file, text_prompt, voice_option, music_choice)
         if video_url:
             print(f"✅ Video generation completed successfully!")
             sys.exit(0)

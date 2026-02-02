@@ -13,6 +13,7 @@ from app.services.video_storage import VideoStorageService
 from app.services.audio_extraction import AudioExtractionService, get_audio_extraction_service
 from app.services.speech_to_text import SpeechToTextService, get_speech_to_text_service
 from app.services.content_filter import ContentFilterService, get_content_filter_service
+from app.services.music import MusicService, get_music_service
 
 
 def get_settings_dependency() -> Settings:
@@ -69,3 +70,8 @@ def get_content_filter_service_dependency(
 ) -> Optional[ContentFilterService]:
     """Get content filter service."""
     return get_content_filter_service(ai4bharat_client)
+
+
+def get_music_service_dependency() -> MusicService:
+    """Get music service instance."""
+    return get_music_service()

@@ -74,6 +74,14 @@ class GenerateVideoRequest(BaseModel):
     audio_enabled: bool = Field(default=True, description="Enable audio generation")
     audio_voice: str = Field(default="en-US-Neural2-F", description="Voice ID: en-US-Neural2-F (female) or en-US-Neural2-D (male)")
     
+    # Background music options
+    music_enabled: bool = Field(default=True, description="Add background music to video")
+    music_style: str = Field(
+        default="playful", 
+        description="Music style: playful, happy, calm, energetic, funny, cute"
+    )
+    music_volume: float = Field(default=0.3, ge=0.0, le=1.0, description="Music volume (0.0-1.0)")
+    
     # pets-backend integration fields (optional)
     user_id: Optional[str] = Field(None, alias="userId")
     auth_token: Optional[str] = Field(None, alias="authToken")
