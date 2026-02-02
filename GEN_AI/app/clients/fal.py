@@ -59,12 +59,11 @@ class FalClient:
         _logger.info(f"fal.ai create_video_job: URL={url}, model_id={self._model_id}, base_url={self._base_url}")
         
         # Prepare payload according to fal.ai schema
-        # Include webhook URL if configured
+        # For /image-to-video endpoint, payload should be flat (not nested under "input")
         payload = {
-            "input": {
-                "image_url": image_url,
-                "prompt": text,
-            }
+            "prompt": text,
+            "image_url": image_url,
+            "prompt_optimizer": True,  # Enable prompt optimization
         }
         
         # Add webhook URL if available (fal.ai supports webhook_url in request)
