@@ -17,7 +17,6 @@ if "CORS_ORIGINS" in os.environ:
         os.environ.pop("CORS_ORIGINS", None)
 
 from app.api.routes import router as api_router
-from app.api import routes as api_routes_module
 from app.clients.ai4bharat import AI4BharatClient
 from app.clients.fal import FalClient
 from app.core.config import Settings, get_settings, clear_settings_cache
@@ -25,7 +24,6 @@ from app.services.job_store import JobStore
 from app.services.video_storage import VideoStorageService
 from app.services.audio_extraction import get_audio_extraction_service
 from app.services.speech_to_text import get_speech_to_text_service
-from app.dependencies import get_fal_client, get_settings_dependency, get_video_storage
 
 _logger = logging.getLogger(__name__)
 
@@ -120,47 +118,29 @@ app.add_middleware(
 
 app.include_router(api_router)
 
-# Add routes without /api prefix for convenience
-from fastapi import Depends
-from app.dependencies import get_job_store
-from app.services.job_store import JobStore
-from app.schemas import GenerateVideoRequest
+# Add simple redirect routes without /api prefix (just redirect to /api/* versions)
+from fastapi.responses import RedirectResponse
 
 @app.post("/generate-video")
-async def generate_video_shortcut(
-    payload: GenerateVideoRequest,
-    job_store: JobStore = Depends(get_job_store),
-    fal_client = Depends(get_fal_client),
-    settings: Settings = Depends(get_settings_dependency),
-):
-    """Generate video (shortcut without /api prefix)"""
-    return await api_routes_module.generate_video(payload, job_store, fal_client, settings)
+async def generate_video_redirect(request: Request):
+    """Redirect to /api/generate-video"""
+    body = await request.body()
+    return RedirectResponse(url="/api/generate-video", status_code=307)
 
 @app.get("/video-status/{job_id}")
-async def video_status_shortcut(
-    job_id: str,
-    job_store: JobStore = Depends(get_job_store),
-):
-    """Check video status (shortcut without /api prefix)"""
-    return await api_routes_module.video_status(job_id, job_store)
+async def video_status_redirect(job_id: str):
+    """Redirect to /api/video-status/{job_id}"""
+    return RedirectResponse(url=f"/api/video-status/{job_id}")
 
 @app.get("/video-result/{job_id}")
-async def video_result_shortcut(
-    job_id: str,
-    job_store: JobStore = Depends(get_job_store),
-    fal_client = Depends(get_fal_client),
-    video_storage = Depends(get_video_storage),
-):
-    """Get video result (shortcut without /api prefix)"""
-    return await api_routes_module.video_result(job_id, job_store, fal_client, video_storage)
+async def video_result_redirect(job_id: str):
+    """Redirect to /api/video-result/{job_id}"""
+    return RedirectResponse(url=f"/api/video-result/{job_id}")
 
 @app.get("/download-video/{job_id}")
-async def download_video_shortcut(
-    job_id: str,
-    job_store: JobStore = Depends(get_job_store),
-):
-    """Download video (shortcut without /api prefix)"""
-    return await api_routes_module.download_video(job_id, job_store)
+async def download_video_redirect(job_id: str):
+    """Redirect to /api/download-video/{job_id}"""
+    return RedirectResponse(url=f"/api/download-video/{job_id}")
 
 
 @app.exception_handler(Exception)
