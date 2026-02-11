@@ -133,6 +133,7 @@ async def generate_video(
     audio_service: Optional[AudioExtractionService] = Depends(get_audio_extraction_service_dependency),
     stt_service: Optional[SpeechToTextService] = Depends(get_speech_to_text_service_dependency),
     content_filter: Optional[ContentFilterService] = Depends(get_content_filter_service_dependency),
+    settings: Settings = Depends(get_settings_dependency),
 ) -> GenerateVideoResponse:
     """Request a fal.ai video after preparing the roast script.
 
@@ -165,7 +166,7 @@ async def generate_video(
     clean_text: str = None
     detected_language: str = "en"
     
-    # MODE 1: Video Input (extract audio + STT)
+    # MODE 1: Video Input (extract frame + pet check, then audio + STT)
     if payload.video_data or payload.video_url:
         _logger.info("📹 Processing video input mode")
         
@@ -176,77 +177,127 @@ async def generate_video(
                 detail="Audio extraction and speech-to-text services are required for video input mode but not available.",
             )
         
-        _logger.info("🎵 Starting audio extraction and speech-to-text pipeline...")
-        
+        _logger.info("🎵 Starting video pre-check + speech-to-text pipeline...")
+
         try:
-            # Step 1: Try to extract audio from video (optional for videos without audio)
-            _logger.info("🎵 Attempting to extract audio from video...")
             extracted_text = None
             audio_extraction_failed = False
-            
-            try:
-                if payload.video_data:
-                    audio_bytes = await audio_service.extract_audio_from_video_data(payload.video_data)
+            temp_video_path = None
+
+            # Step 1: Load video bytes once and persist to temp file
+            if payload.video_data:
+                if payload.video_data.startswith("data:video/"):
+                    _, base64_data = payload.video_data.split(",", 1)
+                    video_bytes = base64.b64decode(base64_data)
                 else:
-                    # Download video from URL first
-                    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-                        video_response = await client.get(payload.video_url)
-                        video_response.raise_for_status()
-                        video_bytes = video_response.content
-                    
-                    # Save to temp file and extract audio
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
-                        temp_video.write(video_bytes)
-                        temp_video_path = temp_video.name
-                    
-                    try:
-                        audio_bytes = await audio_service.extract_audio_from_video_file(temp_video_path)
-                    finally:
-                        if os.path.exists(temp_video_path):
-                            os.unlink(temp_video_path)
-                
+                    video_bytes = base64.b64decode(payload.video_data)
+            else:
+                async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+                    video_response = await client.get(payload.video_url)
+                    video_response.raise_for_status()
+                    video_bytes = video_response.content
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+                temp_video.write(video_bytes)
+                temp_video_path = temp_video.name
+
+            # Step 2: Extract frame and check pets BEFORE STT (saves cost/time)
+            _logger.info("🖼️ Extracting frame from video for pet detection...")
+            try:
+                try:
+                    from moviepy import VideoFileClip
+                except ImportError:
+                    from moviepy.editor import VideoFileClip
+
+                video = VideoFileClip(temp_video_path)
+                duration = video.duration
+                frame_time = min(1.0, duration / 2)
+                frame = video.get_frame(frame_time)
+                video.close()
+
+                frame_image = Image.fromarray(frame.astype("uint8"))
+                img_bytes = io.BytesIO()
+                frame_image.save(img_bytes, format="PNG")
+                img_bytes.seek(0)
+                img_base64 = base64.b64encode(img_bytes.read()).decode("utf-8")
+                final_image_url = f"data:image/png;base64,{img_base64}"
+
+                _logger.info("✅ Frame extracted successfully")
+
+                _logger.info("🔍 Checking for pets in video frame...")
+                async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+                    has_pets, detected_pets, _ = await pet_detector.detect_pets_in_image_url(
+                        final_image_url,
+                        client,
+                    )
+
+                if not has_pets:
+                    _logger.warning("No pets detected in video")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={
+                            "error": "no_pets_detected",
+                            "message": "No pets found in the uploaded video. Please upload a video containing pets (dogs, cats, birds, etc.) to generate a roast video.",
+                            "suggestion": "Make sure your pet is clearly visible in the video.",
+                        },
+                    )
+
+                _logger.info(f"✅ Pets detected in video: {', '.join(detected_pets)}")
+            except HTTPException:
+                raise
+            except Exception as e:
+                _logger.exception("Failed to extract frame from video")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to extract frame from video: {str(e)}",
+                )
+
+            # Step 3: Try to extract audio from video (optional for videos without audio)
+            _logger.info("🎵 Attempting to extract audio from video...")
+            try:
+                audio_bytes = await audio_service.extract_audio_from_video_file(temp_video_path)
                 _logger.info(f"✅ Audio extracted: {len(audio_bytes)} bytes")
-                
-                # Step 2: Convert audio to text (STT) in original language
+
                 _logger.info("🎤 Converting speech to text...")
                 stt_result = await stt_service.transcribe_audio_bytes(audio_bytes)
                 extracted_text = stt_result.get("text", "").strip()
                 detected_language = stt_result.get("language", "en")
-                
+
                 if extracted_text:
-                    _logger.info(f"✅ Text extracted: '{extracted_text[:100]}...' (language: {detected_language})")
+                    _logger.info(
+                        f"✅ Text extracted: '{extracted_text[:100]}...' (language: {detected_language})"
+                    )
                 else:
                     _logger.warning("⚠️ No speech detected in video audio")
                     audio_extraction_failed = True
-                    
             except Exception as audio_error:
-                _logger.warning(f"⚠️ Audio extraction failed: {audio_error}. Using savage roast prompt for video without audio.")
+                _logger.warning(
+                    f"⚠️ Audio extraction failed: {audio_error}. Using savage roast prompt for video without audio."
+                )
                 audio_extraction_failed = True
-            
+
             # If no audio or extraction failed, use a savage roast prompt
             if audio_extraction_failed or not extracted_text:
-                # Generate a savage roast prompt automatically
                 savage_generator = get_savage_prompt_generator()
                 extracted_text = savage_generator.generate_savage_prompt(pet_type="general")
                 detected_language = "en"
                 _logger.info(f"🔥 Using savage roast prompt: '{extracted_text}'")
-            
-            # Step 3: Use AI4Bharat for content filtering/processing
+
+            # Step 4: Use AI4Bharat for content filtering/processing
             _logger.info("🛡️ Processing text with AI4Bharat for filtering...")
             try:
-                # Use AI4Bharat to process/filter the text
-                # If content filter service is available, use it first
                 if content_filter:
-                    filter_result = await content_filter.filter_abusive_content(extracted_text, detected_language)
+                    filter_result = await content_filter.filter_abusive_content(
+                        extracted_text, detected_language
+                    )
                     extracted_text = filter_result["filtered_text"]
                     if filter_result["has_abusive_content"]:
                         _logger.info("⚠️ Abusive content detected and filtered")
-                
-                # Then use AI4Bharat for additional processing/translation if needed
+
                 ai4bharat_result = await ai4bharat_client.translate_text(
                     text=extracted_text,
                     source_language="auto",
-                    target_language=detected_language,  # Keep in original language
+                    target_language=detected_language,
                     task="translation",
                 )
                 clean_text = _extract_translated_text(ai4bharat_result)
@@ -254,91 +305,10 @@ async def generate_video(
             except Exception as e:
                 _logger.warning(f"AI4Bharat processing failed, using filtered text: {e}")
                 clean_text = extracted_text
-            
-            # Step 4: Extract image frame from video for pet detection and video generation
-            _logger.info("🖼️ Extracting frame from video...")
-            try:
-                try:
-                    # Try newer moviepy 2.x import first
-                    from moviepy import VideoFileClip
-                except ImportError:
-                    # Fall back to older moviepy 1.x import
-                    from moviepy.editor import VideoFileClip
-                
-                # Save video to temp file if needed
-                temp_video_path = None
-                if payload.video_data:
-                    if payload.video_data.startswith("data:video/"):
-                        header, base64_data = payload.video_data.split(",", 1)
-                        video_bytes = base64.b64decode(base64_data)
-                    else:
-                        video_bytes = base64.b64decode(payload.video_data)
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
-                        temp_video.write(video_bytes)
-                        temp_video_path = temp_video.name
-                else:
-                    # Download video from URL
-                    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-                        video_response = await client.get(payload.video_url)
-                        video_response.raise_for_status()
-                        video_bytes = video_response.content
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
-                        temp_video.write(video_bytes)
-                        temp_video_path = temp_video.name
-                
-                try:
-                    # Extract frame at 1 second (or middle of video)
-                    video = VideoFileClip(temp_video_path)
-                    duration = video.duration
-                    frame_time = min(1.0, duration / 2)  # Use middle of video or 1 second
-                    frame = video.get_frame(frame_time)
-                    video.close()
-                    
-                    # Convert frame to PIL Image
-                    frame_image = Image.fromarray(frame.astype('uint8'))
-                    
-                    # Convert to base64 data URL for fal.ai
-                    img_bytes = io.BytesIO()
-                    frame_image.save(img_bytes, format='PNG')
-                    img_bytes.seek(0)
-                    img_base64 = base64.b64encode(img_bytes.read()).decode('utf-8')
-                    final_image_url = f"data:image/png;base64,{img_base64}"
-                    
-                    _logger.info("✅ Frame extracted successfully")
-                    
-                    # Check for pets in the extracted frame
-                    _logger.info("🔍 Checking for pets in video frame...")
-                    async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
-                        has_pets, detected_pets, _ = await pet_detector.detect_pets_in_image_url(
-                            final_image_url,
-                            client
-                        )
-                    
-                    if not has_pets:
-                        _logger.warning(f"No pets detected in video")
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail={
-                                "error": "no_pets_detected",
-                                "message": "No pets found in the uploaded video. Please upload a video containing pets (dogs, cats, birds, etc.) to generate a roast video.",
-                                "suggestion": "Make sure your pet is clearly visible in the video."
-                            }
-                        )
-                    
-                    _logger.info(f"✅ Pets detected in video: {', '.join(detected_pets)}")
-                    
-                finally:
-                    if temp_video_path and os.path.exists(temp_video_path):
-                        os.unlink(temp_video_path)
-                        
-            except Exception as e:
-                _logger.exception("Failed to extract frame from video")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to extract frame from video: {str(e)}"
-                )
+
+        finally:
+            if temp_video_path and os.path.exists(temp_video_path):
+                os.unlink(temp_video_path)
             
         except AudioExtractionError as e:
             _logger.exception("Audio extraction failed")
@@ -444,6 +414,10 @@ async def generate_video(
             text=clean_text,
             image_url=final_image_url,
             language=target_language,
+            video_length_seconds=settings.video_length_seconds,
+            fps=settings.video_fps,
+            num_frames=settings.video_num_frames,
+            enable_motion_boost=settings.enable_motion_boost,
         )
     except FalAPIError as exc:
         _logger.exception("Failed to create fal.ai job")

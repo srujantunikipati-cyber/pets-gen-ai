@@ -37,7 +37,17 @@ class FalClient:
             "Content-Type": "application/json",
         }
 
-    async def create_video_job(self, *, text: str, image_url: str, language: str = "en") -> Dict[str, Any]:
+    async def create_video_job(
+        self,
+        *,
+        text: str,
+        image_url: str,
+        language: str = "en",
+        video_length_seconds: Optional[int] = None,
+        fps: Optional[int] = None,
+        num_frames: Optional[int] = None,
+        enable_motion_boost: Optional[bool] = None,
+    ) -> Dict[str, Any]:
         """Submit a new video generation job to fal.ai.
         
         Args:
@@ -60,12 +70,15 @@ class FalClient:
         
         # Prepare payload according to fal.ai schema
         # Different models have different payload formats
+        if num_frames is None and video_length_seconds and fps:
+            num_frames = max(1, int(video_length_seconds * fps))
+
         if "animatediff" in self._model_id.lower():
             # AnimateDiff format (cheapest: $0.02/video)
             payload = {
                 "prompt": text,
                 "image_url": image_url,
-                "num_frames": 96,  # 12 seconds at 8fps
+                "num_frames": num_frames or 96,
                 "num_inference_steps": 25,
             }
         elif "svd" in self._model_id.lower():
@@ -74,8 +87,8 @@ class FalClient:
                 "prompt": text,
                 "image_url": image_url,
                 "motion_bucket_id": 127,  # Medium motion
-                "num_frames": 96,  # 12 seconds at 8fps
-                "fps": 8,
+                "num_frames": num_frames or 96,
+                "fps": fps or 8,
             }
         else:
             # Default format (minimax-video, etc) - supports longer videos
@@ -83,7 +96,7 @@ class FalClient:
                 "prompt": text,
                 "image_url": image_url,
                 "prompt_optimizer": True,
-                "duration": "12",  # 12 second videos
+                "duration": str(video_length_seconds or 12),
             }
         
         # Add webhook URL if available (fal.ai supports webhook_url in request)
