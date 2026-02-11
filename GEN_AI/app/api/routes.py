@@ -309,19 +309,6 @@ async def generate_video(
         finally:
             if temp_video_path and os.path.exists(temp_video_path):
                 os.unlink(temp_video_path)
-            
-        except AudioExtractionError as e:
-            _logger.exception("Audio extraction failed")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to extract audio from video: {str(e)}"
-            )
-        except SpeechToTextError as e:
-            _logger.exception("Speech-to-text failed")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to convert audio to text: {str(e)}"
-            )
     
     # MODE 2: Text + Image (existing flow)
     else:
