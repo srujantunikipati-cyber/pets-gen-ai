@@ -75,18 +75,24 @@ class FalClient:
 
         if "animatediff" in self._model_id.lower():
             # AnimateDiff format (cheapest: $0.02/video)
+            # Enhanced prompt to maintain input consistency
+            enhanced_prompt = f"high quality animation, maintain character appearance, keep same pet, {text}, detailed, smooth motion, consistent features"
             payload = {
-                "prompt": text,
+                "prompt": enhanced_prompt,
                 "image_url": image_url,
                 "num_frames": num_frames or 96,
-                "num_inference_steps": 25,
+                "num_inference_steps": 30,  # Increased for better quality
+                "guidance_scale": 7.5,  # Balance between prompt adherence and creativity
             }
         elif "svd" in self._model_id.lower():
             # Fast-SVD format ($0.05/video) - 12 second videos
+            # Enhanced prompt to maintain subject consistency
+            enhanced_prompt = f"keep same subject from image, maintain appearance, {text}, natural motion, high quality"
             payload = {
-                "prompt": text,
+                "prompt": enhanced_prompt,
                 "image_url": image_url,
-                "motion_bucket_id": 127,  # Medium motion
+                "motion_bucket_id": 180,  # Higher motion for more dynamic videos (1-255)
+                "cond_aug": 0.02,  # Lower conditioning augmentation for better input fidelity
                 "num_frames": num_frames or 96,
                 "fps": fps or 8,
             }

@@ -396,9 +396,25 @@ async def generate_video(
     # Use original language if audio was scanned (keep same language)
     target_language = detected_language if (payload.video_data or payload.video_url) else "en"
     
+    # Enhance prompt with pet-specific details for better consistency
+    pet_specific_details = {
+        'dog': 'same dog breed and color, maintain fur pattern, keep facial features',
+        'cat': 'same cat breed and markings, maintain fur color, keep eye color and features',
+        'bird': 'same bird species and plumage, maintain color patterns, keep beak and eye details',
+        'rabbit': 'same rabbit breed and color, maintain fur pattern, keep ear shape',
+        'hamster': 'same hamster color and size, maintain whiskers and features',
+    }
+    
+    # Get primary pet type and add specific details
+    primary_pet = detected_pets[0].lower() if detected_pets else 'pet'
+    pet_details = pet_specific_details.get(primary_pet, 'maintain exact appearance from input image')
+    enhanced_text = f"{clean_text}. Keep {primary_pet} appearance consistent: {pet_details}"
+    
+    _logger.info(f"🎨 Enhanced prompt: '{enhanced_text[:150]}...'")
+    
     try:
         fal_response = await fal_client.create_video_job(
-            text=clean_text,
+            text=enhanced_text,
             image_url=final_image_url,
             language=target_language,
             video_length_seconds=settings.video_length_seconds,
