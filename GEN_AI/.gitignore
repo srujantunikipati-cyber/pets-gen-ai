@@ -42,12 +42,15 @@ Thumbs.db
 
 # Project specific
 storage/videos/
+storage/temp/
 storage/*.mp4
 storage/*.avi
 *.pt
 *.pth
 *.log
 *.bak
+*.weights
+*.caffemodel
 
 # Keep these
 !.env.example
