@@ -173,6 +173,16 @@ async def generate_video_job(ctx, job_req: dict):
         err_tb = traceback.format_exc()
         logger.error(f"Job {job_id} failed: {e}\n{err_tb}")
         return {"status": "failed", "error": str(e)}
+        
+    finally:
+        # Prevent VPS disk space leak by removing temp processing artifacts
+        import shutil
+        if os.path.exists(work_dir):
+            try:
+                shutil.rmtree(work_dir)
+                logger.info(f"[{job_id}] Cleaned up temporary directory: {work_dir}")
+            except Exception as e:
+                logger.error(f"[{job_id}] Failed to clean up temp directory {work_dir}: {e}")
 
 async def startup(ctx):
     logger.info("Worker starting...")

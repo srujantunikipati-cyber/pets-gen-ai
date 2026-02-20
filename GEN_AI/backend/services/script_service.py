@@ -58,4 +58,3 @@ class ScriptService:
         except Exception as e:
             logger.error(f"Script generation failed: {e}")
             raise
-            raise
