@@ -1,1 +1,0 @@
-# pets-gen-ai
