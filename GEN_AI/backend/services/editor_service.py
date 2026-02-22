@@ -58,7 +58,8 @@ class EditorService:
             # Use d=1 to apply zoompan per-frame on animated video
             video_stream = (
                 input_video
-                .filter('scale', 1080, 1920)
+                .filter('scale', w=1080, h=1920, force_original_aspect_ratio='increase')
+                .filter('crop', w=1080, h=1920)
                 .filter('zoompan', z='min(zoom+0.001,1.5)', x='iw/2-(iw/zoom/2)', y='ih/2-(ih/zoom/2)', d=1)
                 .trim(duration=audio_duration)
                 .setpts('PTS-STARTPTS')

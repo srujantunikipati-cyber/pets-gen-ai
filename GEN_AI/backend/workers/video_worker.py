@@ -68,6 +68,7 @@ async def generate_video_job(ctx, job_req: dict):
             input_video_path = os.path.join(work_dir, "input_video.mp4")
             async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=60.0)) as client:
                 resp = await client.get(video_url_req)
+                resp.raise_for_status()
                 with open(input_video_path, "wb") as f:
                     f.write(resp.content)
             
@@ -136,6 +137,7 @@ async def generate_video_job(ctx, job_req: dict):
         video_path = os.path.join(work_dir, "source_video.mp4")
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=60.0)) as client:
             resp = await client.get(video_url)
+            resp.raise_for_status()
             with open(video_path, "wb") as f:
                 f.write(resp.content)
         
