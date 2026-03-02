@@ -70,7 +70,8 @@ class EditorService:
             # We use force_style to allow simple styling.
             video_stream = video_stream.filter('subtitles', srt_path, force_style='Alignment=2,OutlineColour=&H40000000,BorderStyle=3,Fontsize=24')
 
-            # Combine with audio
+            # Combine with audio.
+            # Video is already trimmed to audio_duration — no need for shortest.
             output = ffmpeg.output(
                 video_stream,
                 input_audio,
@@ -78,7 +79,7 @@ class EditorService:
                 vcodec='libx264',
                 acodec='aac',
                 strict='experimental',
-                shortest=None # We trimmed video, so it should match
+                t=audio_duration,
             )
             
             logger.info(f"Running FFmpeg command for {output_path}")

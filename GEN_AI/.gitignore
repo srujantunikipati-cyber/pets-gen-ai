@@ -28,9 +28,11 @@ wheels/
 .env
 .env.local
 .env.*.local
+backend/.env
 
-# IDE
-.vscode/
+# IDE — keep launch.json (useful for team), ignore local settings only
+.vscode/settings.json
+.vscode/*.code-workspace
 .idea/
 *.swp
 *.swo
@@ -38,6 +40,30 @@ wheels/
 
 # OS
 .DS_Store
+
+# Storage & temp
+storage/output/*.mp4
+storage/temp/
+
+# Local test videos (large files — do not commit)
+videos/
+
+# Model weights (large binaries — distribute separately)
+pet_emotion/model/weights/*.h5
+pet_emotion/model/weights/*.ckpt
+pet_emotion/model/weights/logs/
+
+# Monitoring logs
+pet_emotion/monitoring/*.jsonl
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# TF logs
+logs/
+
 Thumbs.db
 
 # Project specific

@@ -1,0 +1,107 @@
+# =============================================================================
+# Pet Roast AI — Full Stack docker-compose
+#
+# Services:
+#   api       — FastAPI backend (port 8000)
+#   worker    — ARQ background worker
+#   redis     — Job queue + result cache
+#   indictrans — IndicTrans2 translation sidecar (optional)
+#
+# Usage:
+#   cp .env.example .env   # fill in API keys
+#   docker compose up -d
+# =============================================================================
+
+version: "3.9"
+
+x-app-env: &app-env
+  env_file: .env
+  environment:
+    - REDIS_URL=redis://redis:6379
+    - AI4BHARAT_BASE_URL=http://indictrans:5000
+    - STORAGE_DIR=/data
+    - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+services:
+  # -------------------------------------------------------------------------
+  # Redis
+  # -------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: pet_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------------------
+  # FastAPI backend
+  # -------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: pet_api
+    restart: unless-stopped
+    <<: *app-env
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - app_data:/data
+      - ./pet_emotion/model/weights:/home/app/api/pet_emotion/model/weights:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+  # -------------------------------------------------------------------------
+  # ARQ worker
+  # -------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: pet_worker
+    restart: unless-stopped
+    <<: *app-env
+    command: >
+      python -m arq backend.workers.video_worker.WorkerSettings
+    volumes:
+      - app_data:/data
+      - ./pet_emotion/model/weights:/home/app/api/pet_emotion/model/weights:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # -------------------------------------------------------------------------
+  # IndicTrans2 sidecar (optional — comment out if not needed)
+  # -------------------------------------------------------------------------
+  # indictrans:
+  #   image: ai4bharat/indictrans2-server:latest   # replace with your actual image
+  #   container_name: pet_indictrans
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5000:5000"
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+
+volumes:
+  redis_data:
+  app_data:

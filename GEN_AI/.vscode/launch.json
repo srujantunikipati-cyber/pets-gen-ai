@@ -1,0 +1,149 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    // -----------------------------------------------------------------------
+    // 1. Run FastAPI dev server (hot-reload)
+    // -----------------------------------------------------------------------
+    {
+      "name": "FastAPI: Dev Server",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "backend.main:app",
+        "--host", "0.0.0.0",
+        "--port", "8000",
+        "--reload",
+        "--log-level", "debug"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "LOG_LEVEL": "DEBUG",
+        "RELOAD": "true"
+      },
+      "envFile": "${workspaceFolder}/.env",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+
+    // -----------------------------------------------------------------------
+    // 2. Run ARQ background worker
+    // -----------------------------------------------------------------------
+    {
+      "name": "ARQ: Video Worker",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "arq",
+      "args": ["backend.workers.video_worker.WorkerSettings"],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "LOG_LEVEL": "DEBUG"
+      },
+      "envFile": "${workspaceFolder}/.env",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+
+    // -----------------------------------------------------------------------
+    // 3. Debug the emotion routes directly
+    // -----------------------------------------------------------------------
+    {
+      "name": "FastAPI: Emotion Routes Only",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "backend.main:app",
+        "--host", "0.0.0.0",
+        "--port", "8001",
+        "--reload"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "LOG_LEVEL": "DEBUG"
+      },
+      "envFile": "${workspaceFolder}/.env",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+
+    // -----------------------------------------------------------------------
+    // 4. Train Pet Emotion model (CLI)
+    // -----------------------------------------------------------------------
+    {
+      "name": "Train: Pet Emotion Model",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pet_emotion.model.train",
+      "args": [
+        "--data_dir", "${workspaceFolder}/pet_emotion/data",
+        "--epochs", "30",
+        "--batch_size", "32"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "TF_CPP_MIN_LOG_LEVEL": "2"
+      },
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+
+    // -----------------------------------------------------------------------
+    // 5. Run all Pytest tests
+    // -----------------------------------------------------------------------
+    {
+      "name": "Pytest: All Tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "tests/",
+        "-v",
+        "--tb=short",
+        "--cov=backend",
+        "--cov=pet_emotion",
+        "--cov-report=term-missing"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "OPENAI_API_KEY": "sk-test",
+        "FAL_KEY": "test",
+        "REDIS_URL": "redis://localhost:6379"
+      },
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+
+    // -----------------------------------------------------------------------
+    // 6. Debug current test file
+    // -----------------------------------------------------------------------
+    {
+      "name": "Pytest: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-v", "--tb=long"],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "OPENAI_API_KEY": "sk-test",
+        "FAL_KEY": "test"
+      },
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ],
+
+  // -------------------------------------------------------------------------
+  // Compound: start API + worker together
+  // -------------------------------------------------------------------------
+  "compounds": [
+    {
+      "name": "Full Stack: API + Worker",
+      "configurations": ["FastAPI: Dev Server", "ARQ: Video Worker"]
+    }
+  ]
+}

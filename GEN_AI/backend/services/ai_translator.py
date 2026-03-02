@@ -30,7 +30,8 @@ class AI4BharatClient:
         self._base_url = base_url.rstrip("/")
         self._translate_path = translate_path
         self._api_key = api_key
-        self._max_retries = max_retries
+        # Keep retries low (2) for the video pipeline — caller has a 30s timeout
+        self._max_retries = min(max_retries, 2)
         self._retry_backoff_factor = retry_backoff_factor
 
     def _headers(self) -> Dict[str, str]:

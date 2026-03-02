@@ -67,3 +67,29 @@ class AudioExtractionService:
             err_msg = e.stderr.decode() if e.stderr else str(e)
             logger.error(f"Failed to extract frame: {err_msg}")
             raise Exception(f"Frame extraction failed: {err_msg}")
+
+    def extract_frame_at(self, video_path: str, output_image_path: str, offset_seconds: float = 0.0) -> str:
+        """
+        Extracts a single frame at the given time offset (seconds).
+        Falls back to first frame if seeking fails.
+        """
+        try:
+            (
+                ffmpeg
+                .input(video_path, ss=offset_seconds)
+                .output(output_image_path, vframes=1)
+                .overwrite_output()
+                .run(quiet=True)
+            )
+            return output_image_path
+        except ffmpeg.Error:
+            # Fallback: extract first frame
+            return self.extract_frame(video_path, output_image_path)
+
+    def get_video_duration(self, video_path: str) -> float:
+        """Return video duration in seconds (0.0 on error)."""
+        try:
+            probe = ffmpeg.probe(video_path)
+            return float(probe['format'].get('duration', 0.0))
+        except Exception:
+            return 0.0
